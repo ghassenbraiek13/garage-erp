@@ -1,0 +1,15 @@
+{
+  "name": "garage-erp",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "frontend",
+    "garageflow-backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w garageflow\" \"npm run dev -w garageflow-backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

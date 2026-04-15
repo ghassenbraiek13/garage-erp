@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080D1A" />
+    <title>Hors ligne — GarageFlow</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, system-ui, sans-serif;
+        background: radial-gradient(
+            ellipse 80% 50% at 20% 0%,
+            rgba(59, 130, 246, 0.2) 0%,
+            transparent 60%
+          ),
+          #080d1a;
+        color: #f1f5f9;
+        padding: 24px;
+      }
+      .card {
+        max-width: 420px;
+        width: 100%;
+        padding: 32px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(15, 22, 40, 0.85);
+        backdrop-filter: blur(20px) saturate(180%);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        text-align: center;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 8px;
+      }
+      p {
+        margin: 0 0 20px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+      a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 20px;
+        border-radius: 8px;
+        background: #3b82f6;
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>GarageFlow</h1>
+      <p>Vous êtes hors ligne. Vérifiez votre connexion puis réessayez.</p>
+      <a href="/">Retour à l’accueil</a>
+    </div>
+  </body>
+</html>
