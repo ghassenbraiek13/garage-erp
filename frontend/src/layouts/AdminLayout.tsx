@@ -4,7 +4,7 @@ import { ClayCard, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 const links = [
-  { to: '/super-admin', label: 'Vue' },
+  { to: '/super-admin/dashboard', label: 'Vue' },
   { to: '/super-admin/garages', label: 'Garages' },
   { to: '/super-admin/users', label: 'Utilisateurs' },
   { to: '/super-admin/stats', label: 'Stats' },
@@ -26,7 +26,7 @@ export function AdminLayout() {
               <NavLink
                 key={l.to}
                 to={l.to}
-                end={l.to === '/super-admin'}
+                end={l.to === '/super-admin/dashboard'}
                 className={({ isActive }) =>
                   cn(
                     'rounded-full px-3 py-2 text-sm font-semibold',

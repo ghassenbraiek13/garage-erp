@@ -3,7 +3,7 @@ import * as ctrl from '@/controllers/client.controller'
 import { verifyToken } from '@/middleware/auth.middleware'
 import { requireRole } from '@/middleware/rbac.middleware'
 import { validateBody } from '@/middleware/validate.middleware'
-import { AddPointsSchema, CreateClientSchema, UpdateClientSchema } from '@/schemas/client.schema'
+import { AddPointsSchema, CreateClientSchema, PortalAccessSchema, UpdateClientSchema } from '@/schemas/client.schema'
 
 const r = Router()
 
@@ -25,5 +25,13 @@ r.post(
   validateBody(AddPointsSchema),
   ctrl.addPoints,
 )
+r.post(
+  '/:id/portal-access',
+  verifyToken,
+  requireRole('manager', 'superadmin'),
+  validateBody(PortalAccessSchema),
+  ctrl.createPortalAccess,
+)
+r.delete('/:id/portal-access', verifyToken, requireRole('manager', 'superadmin'), ctrl.removePortalAccess)
 
 export default r

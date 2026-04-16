@@ -1,15 +1,37 @@
 import type { Request, Response } from 'express'
+import crypto from 'crypto'
 import mongoose from 'mongoose'
 import type { PaginateModel } from 'mongoose'
 import { Client, type IClient } from '@/models/Client.model'
 import { Vehicle } from '@/models/Vehicle.model'
 import { Repair } from '@/models/Repair.model'
 import { Invoice } from '@/models/Invoice.model'
+import { User } from '@/models/User.model'
 import { ok } from '@/utils/apiResponse'
 import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
 import { exportClientsExcel } from '@/services/excel.service'
 import { generateClientsListPdf } from '@/services/pdf.service'
+import { sendMail } from '@/services/email.service'
+import { getEnv } from '@/config/env'
+
+function generateTempPassword(): string {
+  const lower = 'abcdefghijklmnopqrstuvwxyz'
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const digits = '0123456789'
+  const all = lower + upper + digits
+  const arr = [
+    lower[crypto.randomInt(lower.length)],
+    upper[crypto.randomInt(upper.length)],
+    digits[crypto.randomInt(digits.length)],
+  ]
+  for (let i = 0; i < 8; i++) arr.push(all[crypto.randomInt(all.length)])
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1)
+    ;[arr[i], arr[j]] = [arr[j]!, arr[i]!]
+  }
+  return arr.join('')
+}
 
 const ClientPaged = Client as unknown as PaginateModel<IClient>
 
@@ -144,4 +166,52 @@ export async function exportPdf(req: Request, res: Response): Promise<void> {
   res.setHeader('Content-Type', 'application/pdf')
   res.setHeader('Content-Disposition', 'attachment; filename="clients.pdf"')
   res.send(buf)
+}
+
+export async function createPortalAccess(req: Request, res: Response): Promise<void> {
+  const garageId = assertGarage(req)
+  const c = await Client.findOne({ _id: req.params.id, garageId })
+  if (!c) {
+    res.status(404).json({ success: false, message: 'Not found' })
+    return
+  }
+  if (!c.email) {
+    res.status(400).json({ success: false, message: 'Client sans email' })
+    return
+  }
+  const emailLower = c.email.toLowerCase().trim()
+  const existing = await User.findOne({ email: emailLower })
+  if (existing) {
+    res.status(409).json({ success: false, message: 'Un compte existe déjà pour cet email' })
+    return
+  }
+  const { password, sendEmail } = req.body as { password?: string; sendEmail?: boolean }
+  const plain = password ?? generateTempPassword()
+  const u = await User.create({
+    email: emailLower,
+    password: plain,
+    name: c.name,
+    role: 'client',
+    garageId,
+    clientId: c._id,
+  })
+  if (sendEmail) {
+    const base = getEnv().FRONTEND_URL ?? 'http://localhost:5173'
+    await sendMail({
+      to: emailLower,
+      subject: 'GarageFlow — Accès portail client',
+      text: `Bonjour,\n\nVotre accès au portail GarageFlow est activé.\nEmail : ${emailLower}\nMot de passe temporaire : ${plain}\n\nConnexion : ${base}/portal/login`,
+    })
+  }
+  res.status(201).json(ok({ user: u.toJSON(), tempPassword: plain }))
+}
+
+export async function removePortalAccess(req: Request, res: Response): Promise<void> {
+  const garageId = assertGarage(req)
+  const r = await User.deleteOne({ garageId, clientId: req.params.id, role: 'client' })
+  if (r.deletedCount === 0) {
+    res.status(404).json({ success: false, message: 'Aucun accès portail' })
+    return
+  }
+  res.json(ok({ deleted: true }))
 }

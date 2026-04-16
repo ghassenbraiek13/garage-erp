@@ -61,7 +61,6 @@ const userSchema = new Schema<IUser, Model<IUser, object, UserMethods> & UserSta
   { timestamps: true },
 )
 
-userSchema.index({ email: 1 }, { unique: true })
 userSchema.index({ garageId: 1 })
 
 userSchema.pre('save', async function preSave(next) {

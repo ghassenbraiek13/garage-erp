@@ -57,6 +57,10 @@ const SettingsPage = lazy(async () => {
   const m = await import('@/pages/settings/SettingsPage')
   return { default: m.SettingsPage }
 })
+const UsersTeamPage = lazy(async () => {
+  const m = await import('@/pages/users/UsersTeamPage')
+  return { default: m.UsersTeamPage }
+})
 
 const LoginPage = lazy(async () => {
   const m = await import('@/pages/auth/LoginPage')
@@ -133,6 +137,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Suspensed><DashboardPage /></Suspensed> },
       { path: 'clients', element: <Suspensed><ClientsPage /></Suspensed> },
+      { path: 'users', element: <Suspensed><UsersTeamPage /></Suspensed> },
       { path: 'vehicles', element: <Suspensed><VehiclesPage /></Suspensed> },
       { path: 'repairs', element: <Suspensed><RepairsPage /></Suspensed> },
       { path: 'quotes', element: <Suspensed><QuotesPage /></Suspensed> },
@@ -151,7 +156,8 @@ export const router = createBrowserRouter([
     path: '/super-admin',
     element: <AdminLayout />,
     children: [
-      { index: true, element: <Suspensed><SuperAdminOverview /></Suspensed> },
+      { index: true, element: <Navigate to="dashboard" replace /> },
+      { path: 'dashboard', element: <Suspensed><SuperAdminOverview /></Suspensed> },
       { path: 'garages', element: <Suspensed><SuperAdminGarages /></Suspensed> },
       { path: 'users', element: <Suspensed><SuperAdminUsers /></Suspensed> },
       { path: 'stats', element: <Suspensed><SuperAdminOverview /></Suspensed> },

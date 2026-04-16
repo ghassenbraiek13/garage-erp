@@ -33,6 +33,7 @@
   "navigation": {
     "dashboard": "Tableau de bord",
     "clients": "Clients",
+    "team": "Équipe",
     "vehicles": "Véhicules",
     "repairs": "Réparations",
     "quotes": "Devis & Factures",

@@ -6,19 +6,41 @@
   :root {
     color-scheme: light;
     --bg-page: #f0f4ff;
-    --bg-surface: rgba(255, 255, 255, 0.72);
-    --bg-sidebar: rgba(248, 250, 255, 0.85);
+    --bg-surface: rgba(255, 255, 255, 0.85);
+    --bg-surface-solid: #ffffff;
+    --bg-sidebar: rgba(248, 250, 255, 0.92);
+    --bg-table-header: #f8faff;
+    --bg-table-row: #ffffff;
+    --bg-table-row-alt: #f8fafc;
+    --bg-table-hover: rgba(37, 99, 235, 0.04);
+    --bg-input: #ffffff;
+    --bg-modal: rgba(255, 255, 255, 0.95);
+    --bg-dropdown: #ffffff;
+    --bg-badge-blue: rgba(37, 99, 235, 0.1);
+    --bg-badge-green: rgba(16, 185, 129, 0.1);
+    --bg-badge-orange: rgba(245, 158, 11, 0.1);
+    --bg-badge-red: rgba(239, 68, 68, 0.1);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --text-inverse: #ffffff;
+    --text-badge-blue: #1d4ed8;
+    --text-badge-green: #065f46;
+    --text-badge-orange: #92400e;
+    --text-badge-red: #991b1b;
+    --border: rgba(0, 0, 0, 0.07);
+    --border-strong: rgba(0, 0, 0, 0.12);
+    --border-table: rgba(0, 0, 0, 0.06);
     --accent-primary: #2563eb;
     --accent-hover: #1d4ed8;
     --accent-green: #10b981;
     --accent-orange: #f59e0b;
     --accent-red: #ef4444;
     --accent-purple: #8b5cf6;
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #94a3b8;
-    --border: rgba(0, 0, 0, 0.07);
     --shadow-clay: 0 8px 32px rgba(37, 99, 235, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-clay-hover: 0 16px 48px rgba(37, 99, 235, 0.14), 0 4px 16px rgba(0, 0, 0, 0.08);
+    --overlay: rgba(0, 0, 0, 0.4);
+    --scrollbar: rgba(0, 0, 0, 0.12);
     --clay-border: 1px solid rgba(0, 0, 0, 0.08);
     --clay-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
     --mesh-bg: radial-gradient(
@@ -37,19 +59,41 @@
   [data-theme='dark'] {
     color-scheme: dark;
     --bg-page: #080d1a;
-    --bg-surface: rgba(15, 22, 40, 0.75);
-    --bg-sidebar: rgba(10, 16, 32, 0.9);
+    --bg-surface: rgba(15, 22, 40, 0.8);
+    --bg-surface-solid: #0f1628;
+    --bg-sidebar: rgba(8, 13, 26, 0.95);
+    --bg-table-header: rgba(255, 255, 255, 0.04);
+    --bg-table-row: transparent;
+    --bg-table-row-alt: rgba(255, 255, 255, 0.025);
+    --bg-table-hover: rgba(59, 130, 246, 0.08);
+    --bg-input: rgba(255, 255, 255, 0.06);
+    --bg-modal: rgba(12, 18, 36, 0.97);
+    --bg-dropdown: #111827;
+    --bg-badge-blue: rgba(59, 130, 246, 0.15);
+    --bg-badge-green: rgba(16, 185, 129, 0.15);
+    --bg-badge-orange: rgba(245, 158, 11, 0.15);
+    --bg-badge-red: rgba(239, 68, 68, 0.15);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #475569;
+    --text-inverse: #0f172a;
+    --text-badge-blue: #93c5fd;
+    --text-badge-green: #6ee7b7;
+    --text-badge-orange: #fcd34d;
+    --text-badge-red: #fca5a5;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-strong: rgba(255, 255, 255, 0.12);
+    --border-table: rgba(255, 255, 255, 0.05);
     --accent-primary: #3b82f6;
-    --accent-hover: #2563eb;
+    --accent-hover: #60a5fa;
     --accent-green: #34d399;
     --accent-orange: #fbbf24;
     --accent-red: #f87171;
     --accent-purple: #a78bfa;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #475569;
-    --border: rgba(255, 255, 255, 0.06);
     --shadow-clay: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-clay-hover: 0 16px 48px rgba(0, 0, 0, 0.7), 0 4px 16px rgba(0, 0, 0, 0.4);
+    --overlay: rgba(0, 0, 0, 0.65);
+    --scrollbar: rgba(255, 255, 255, 0.12);
     --clay-border: 1px solid rgba(255, 255, 255, 0.18);
     --clay-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
     --mesh-bg: radial-gradient(
@@ -62,6 +106,7 @@
   }
 
   * {
+    color-scheme: light dark;
     @apply border-border;
   }
 
@@ -126,6 +171,24 @@
 
   .skip-link {
     @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-clay-primary focus:px-4 focus:py-2 focus:text-white;
+  }
+
+  .gf-data-table tbody tr {
+    background: var(--bg-table-row);
+    color: var(--text-primary);
+  }
+
+  .gf-data-table tbody tr:nth-child(even) {
+    background: var(--bg-table-row-alt);
+  }
+
+  .gf-data-table tbody tr:hover {
+    background: var(--bg-table-hover);
+  }
+
+  select option {
+    background: var(--bg-dropdown);
+    color: var(--text-primary);
   }
 }
 

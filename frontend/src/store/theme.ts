@@ -32,11 +32,23 @@ export const useThemeStore = create(
       },
     }),
     {
-      name: 'gf-theme',
+      name: 'garageflow-theme',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       partialize: (s) => ({ theme: s.theme }) as any,
       onRehydrateStorage: () => (state) => {
-        if (state) applyDomTheme(state.theme)
+        if (state) {
+          applyDomTheme(state.theme)
+          return
+        }
+        try {
+          const legacy = localStorage.getItem('gf-theme')
+          if (legacy) {
+            const p = JSON.parse(legacy) as { state?: { theme?: ThemeMode } }
+            if (p.state?.theme) applyDomTheme(p.state.theme)
+          }
+        } catch {
+          /* ignore */
+        }
       },
     },
   ),

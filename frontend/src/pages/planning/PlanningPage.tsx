@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { format, getDay, parse, startOfWeek } from 'date-fns'
+import { addDays, endOfMonth, format, getDay, parse, startOfMonth, startOfWeek, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useEffect, useMemo, useState } from 'react'
 import { Calendar, dateFnsLocalizer, type View } from 'react-big-calendar'
@@ -12,8 +12,8 @@ import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/ca
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { mockAppointments } from '@/mocks/mockAppointments'
-import { mockMechanics } from '@/mocks/mockMechanics'
+import { useAppointmentsList, type ApiAppointment } from '@/hooks/api/useAppointments'
+import { useMechanics } from '@/hooks/api/useUsers'
 
 const localizer = dateFnsLocalizer({
   format,
@@ -29,7 +29,12 @@ const colorMap = {
   wash: '#f59e0b',
 } as const
 
-export function PlanningPage() {
+function refId(x: unknown): string {
+  if (x && typeof x === 'object' && '_id' in x) return String((x as { _id: unknown })._id)
+  return String(x ?? '')
+}
+
+export function PlanningPage(): React.ReactElement {
   const { t } = useTranslation(['planning', 'common'])
   const [mechanic, setMechanic] = useState<string>('all')
   const [open, setOpen] = useState(false)
@@ -37,18 +42,29 @@ export function PlanningPage() {
   const [selected, setSelected] = useState<{ title: string; start?: Date; end?: Date } | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [view, setView] = useState<View>('week')
+  const [calDate, setCalDate] = useState(() => new Date())
+
+  const range = useMemo(() => {
+    const sm = startOfMonth(calDate)
+    const em = endOfMonth(calDate)
+    return { start: subDays(sm, 7).toISOString(), end: addDays(em, 7).toISOString() }
+  }, [calDate])
+
+  const { data: apptData, isLoading } = useAppointmentsList(range)
+  const { data: mechanics } = useMechanics()
+  const rawItems = apptData?.items ?? []
 
   const events = useMemo(() => {
-    return mockAppointments
-      .filter((a) => (mechanic === 'all' ? true : a.mechanicId === mechanic))
+    return rawItems
+      .filter((a) => (mechanic === 'all' ? true : refId(a.mechanicId) === mechanic))
       .map((a) => ({
         id: a.id,
-        title: `${a.type} · ${a.id}`,
+        title: `RDV · ${refId(a.clientId).slice(-4)}`,
         start: new Date(a.start),
         end: new Date(a.end),
         meta: a,
       }))
-  }, [mechanic])
+  }, [rawItems, mechanic])
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -70,7 +86,7 @@ export function PlanningPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-fluid-h1 font-semibold">{t('planning:title')}</h1>
-          <p className="text-sm text-ink-secondary">React Big Calendar + date-fns (vue alternative FullCalendar)</p>
+          <p className="text-sm text-ink-secondary">Planning connecté à l&apos;API</p>
         </div>
         <Button type="button" onClick={() => setOpen(true)}>
           {t('planning:newSlot')}
@@ -81,7 +97,7 @@ export function PlanningPage() {
         <Badge variant={mechanic === 'all' ? 'primary' : 'default'} className="cursor-pointer" onClick={() => setMechanic('all')}>
           Tous
         </Badge>
-        {mockMechanics.map((m) => (
+        {(mechanics ?? []).map((m) => (
           <Badge
             key={m.id}
             variant={mechanic === m.id ? 'primary' : 'default'}
@@ -99,7 +115,7 @@ export function PlanningPage() {
             <CardTitle className="text-base">Agenda</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-ink-secondary">
-            Filtre mécanicien + vues jour/semaine/mois. Glisser-déposer simulé via interaction (démo).
+            {isLoading ? 'Chargement…' : `${events.length} créneau(x) sur la période affichée.`}
           </CardContent>
         </ClayCard>
 
@@ -115,6 +131,8 @@ export function PlanningPage() {
                 style={{ height: 620 }}
                 view={view}
                 onView={(v) => setView(v)}
+                date={calDate}
+                onNavigate={(d) => setCalDate(d)}
                 selectable
                 onSelectEvent={(ev) => {
                   setSelected({ title: String(ev.title), start: ev.start, end: ev.end })
@@ -122,8 +140,9 @@ export function PlanningPage() {
                 }}
                 onSelectSlot={() => setOpen(true)}
                 eventPropGetter={(ev) => {
-                  const e = ev as { meta?: { type: keyof typeof colorMap } }
-                  const k = e.meta?.type ?? 'repair'
+                  const e = ev as { meta?: ApiAppointment }
+                  const st = e.meta?.status
+                  const k = st === 'cancelled' ? 'wash' : 'repair'
                   const bg = colorMap[k] ?? colorMap.repair
                   return { style: { backgroundColor: bg, border: 'none', color: '#fff' } as CSSProperties }
                 }}
@@ -137,7 +156,7 @@ export function PlanningPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('planning:newSlot')}</DialogTitle>
-            <DialogDescription>Créneau fictif — connectez votre API pour persister.</DialogDescription>
+            <DialogDescription>Créneau — branchement formulaire POST /appointments à finaliser.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">

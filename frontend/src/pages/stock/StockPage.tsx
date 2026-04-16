@@ -1,18 +1,19 @@
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DataTable, type DataColumn } from '@/components/ui/DataTable'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { mockParts } from '@/mocks/mockParts'
-import type { Part } from '@/types'
+import { QueryBoundary } from '@/components/ui/QueryBoundary'
+import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import type { ApiPart } from '@/hooks/api/useParts'
+import { usePartsList, usePartsLowStock } from '@/hooks/api/useParts'
 import { cn } from '@/lib/utils'
 
 const schema = z.object({
@@ -24,26 +25,50 @@ const schema = z.object({
   supplier: z.string().min(2),
 })
 
-export function StockPage() {
+export function StockPage(): React.ReactElement {
   const { t } = useTranslation(['stock', 'common'])
-  const [parts, setParts] = useState<Part[]>(mockParts)
+  const { data, isLoading, isError, error, refetch } = usePartsList()
+  const { data: lowStockApi } = usePartsLowStock()
   const [open, setOpen] = useState(false)
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) })
 
-  const low = useMemo(() => parts.filter((p) => p.stock < p.minStock), [parts])
+  const parts = data?.items ?? []
+  const low = lowStockApi ?? parts.filter((p) => p.stock < p.minStock)
 
-  const barColor = (p: Part) => {
+  const barColor = (p: ApiPart) => {
     if (p.stock < 10) return 'bg-clay-red'
     if (p.stock < 30) return 'bg-clay-orange'
     return 'bg-clay-green'
   }
+
+  const columns: DataColumn<ApiPart>[] = [
+    { id: 'ref', header: t('reference'), cell: (p) => <span className="font-mono text-xs">{p.reference}</span> },
+    { id: 'name', header: 'Nom', cell: (p) => p.name },
+    { id: 'cat', header: 'Catégorie', cell: (p) => p.category ?? '—' },
+    {
+      id: 'stock',
+      header: 'Stock',
+      cell: (p) => (
+        <div>
+          <div className="mb-1 flex justify-between text-xs">
+            <span>{p.stock}</span>
+            <span className="text-ink-muted">min {p.minStock}</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--bg-table-header)]">
+            <div className={cn('h-full rounded-full transition-all', barColor(p))} style={{ width: `${Math.min(100, (p.stock / Math.max(p.minStock * 2, 1)) * 100)}%` }} />
+          </div>
+        </div>
+      ),
+    },
+    { id: 'price', header: 'Prix', cell: (p) => `${p.price} €` },
+  ]
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-fluid-h1 font-semibold">{t('title')}</h1>
-          <p className="text-sm text-ink-secondary">Seuils : rouge &lt;10, orange &lt;30</p>
+          <p className="text-sm text-ink-secondary">Données pièces détachées (API)</p>
         </div>
         <Button type="button" onClick={() => setOpen(true)}>
           Ajouter une pièce
@@ -62,65 +87,31 @@ export function StockPage() {
       ) : null}
 
       <ClayCard variant="elevated">
-        <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('reference')}</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Visibilité</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {parts.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono text-xs">{p.reference}</TableCell>
-                  <TableCell>{p.name}</TableCell>
-                  <TableCell className="w-[240px]">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--bg-sidebar)]">
-                        <div
-                          className={cn('h-2 rounded-full', barColor(p))}
-                          style={{ width: `${Math.min(100, (p.stock / 60) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-semibold">{p.stock}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={p.visibility === 'public' ? 'success' : 'default'}>{p.visibility}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <CardContent className="p-4">
+          <QueryBoundary
+            isLoading={isLoading}
+            isError={isError}
+            error={error as Error}
+            onRetry={() => void refetch()}
+            isEmpty={!isLoading && parts.length === 0}
+            loading={<TableSkeleton rows={6} />}
+            empty={<p className="text-sm text-ink-muted">Aucune pièce</p>}
+          >
+            <DataTable columns={columns} data={parts} getRowKey={(p) => p.id} />
+          </QueryBoundary>
         </CardContent>
       </ClayCard>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ajouter / éditer pièce</DialogTitle>
+            <DialogTitle>Nouvelle pièce</DialogTitle>
           </DialogHeader>
           <form
             className="space-y-3"
-            onSubmit={form.handleSubmit((values) => {
-              const np: Part = {
-                id: `p-${Date.now()}`,
-                reference: values.reference,
-                name: values.name,
-                category: values.category,
-                price: values.price,
-                stock: values.quantity,
-                minStock: 10,
-                supplier: values.supplier,
-                visibility: 'public',
-              }
-              setParts((prev) => [np, ...prev])
-              toast.success('Pièce enregistrée (démo)')
+            onSubmit={form.handleSubmit(() => {
+              toast.message('Création pièce — brancher POST /parts')
               setOpen(false)
-              form.reset()
             })}
           >
             <div>
@@ -132,21 +123,21 @@ export function StockPage() {
               <Input {...form.register('name')} />
             </div>
             <div>
-              <Label>Catégorie</Label>
+              <Label>{t('category')}</Label>
               <Input {...form.register('category')} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Prix</Label>
+                <Label>{t('price')}</Label>
                 <Input type="number" {...form.register('price')} />
               </div>
               <div>
-                <Label>Quantité</Label>
+                <Label>{t('stock')}</Label>
                 <Input type="number" {...form.register('quantity')} />
               </div>
             </div>
             <div>
-              <Label>{t('supplier')}</Label>
+              <Label>Fournisseur</Label>
               <Input {...form.register('supplier')} />
             </div>
             <Button className="w-full" type="submit">

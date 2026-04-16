@@ -20,3 +20,12 @@ export const AddPointsSchema = z.object({
   points: z.number().int(),
   reason: z.string().max(200).optional(),
 })
+
+export const PortalAccessSchema = z.object({
+  password: z
+    .string()
+    .min(8)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .optional(),
+  sendEmail: z.boolean().optional(),
+})

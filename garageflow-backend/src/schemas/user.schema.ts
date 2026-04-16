@@ -7,7 +7,7 @@ export const CreateStaffSchema = z.object({
     .min(8)
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
   name: z.string().min(2).max(100),
-  role: z.enum(['mechanic', 'cashier']),
+  role: z.enum(['mechanic', 'cashier', 'manager']),
 })
 
 export const UpdateUserSchema = z.object({

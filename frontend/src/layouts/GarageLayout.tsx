@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuthStore } from '@/store/auth'
 import { GarageSidebar } from '@/components/layout/GarageSidebar'
 import { GarageTopBar } from '@/components/layout/GarageTopBar'
 import { MobileGarageNav } from '@/components/layout/MobileGarageNav'
@@ -9,8 +10,13 @@ import { cn } from '@/lib/utils'
 import { useLayoutStore } from '@/store/layout'
 
 export function GarageLayout() {
+  const user = useAuthStore((s) => s.user)
   const collapsed = useLayoutStore((s) => s.sidebarCollapsed)
   const [sheetOpen, setSheetOpen] = useState(false)
+
+  if (user?.role === 'superadmin') {
+    return <Navigate to="/super-admin/dashboard" replace />
+  }
 
   return (
     <div className="min-h-screen">

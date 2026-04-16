@@ -1,0 +1,41 @@
+# Développement / démo : API + MongoDB + frontend statique (Nginx).
+# Variables sensibles : copier garageflow-backend/.env à partir de .env.production.example (racine).
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - '27017:27017'
+
+  api:
+    build: ./garageflow-backend
+    restart: unless-stopped
+    ports:
+      - '5000:5000'
+    env_file:
+      - ./garageflow-backend/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/garageflow
+    depends_on:
+      - mongo
+    volumes:
+      - uploads_data:/app/uploads
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5000/api/v1
+        VITE_SOCKET_URL: http://localhost:5000
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    depends_on:
+      - api
+
+volumes:
+  mongo_data:
+  uploads_data:

@@ -1,19 +1,22 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataTable, type DataColumn } from '@/components/ui/DataTable'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { QueryBoundary } from '@/components/ui/QueryBoundary'
+import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { useInvoicesList, type ApiInvoice } from '@/hooks/api/useInvoices'
+import { useQuotesList, type ApiQuote } from '@/hooks/api/useQuotes'
 import { formatCurrencyEUR } from '@/lib/utils'
-import { mockInvoices, mockQuotes } from '@/mocks/mockQuotes'
 import { useLocaleStore } from '@/store/locale'
+import api from '@/utils/api'
 
 const lineSchema = z.object({
   label: z.string().min(2),
@@ -27,10 +30,26 @@ const quoteFormSchema = z.object({
   discount: z.coerce.number().min(0),
 })
 
-export function QuotesPage() {
+export function QuotesPage(): React.ReactElement {
   const { t } = useTranslation(['quotes', 'common'])
   const locale = useLocaleStore((s) => s.locale)
-  const [preview, setPreview] = useState(false)
+  const {
+    data: quotesData,
+    isLoading: qLoading,
+    isError: qErr,
+    error: qError,
+    refetch: refetchQ,
+  } = useQuotesList()
+  const {
+    data: invData,
+    isLoading: iLoading,
+    isError: iErr,
+    error: iError,
+    refetch: refetchI,
+  } = useInvoicesList()
+
+  const quotes = quotesData?.items ?? []
+  const invoices = invData?.items ?? []
 
   const form = useForm<z.infer<typeof quoteFormSchema>>({
     resolver: zodResolver(quoteFormSchema),
@@ -49,11 +68,67 @@ export function QuotesPage() {
     return { ht, tvaAmt, ttc }
   }, [watchedDiscount, watchedLines])
 
+  const quoteColumns: DataColumn<ApiQuote>[] = [
+    { id: 'id', header: 'ID', cell: (q) => <span className="font-mono text-xs">{q.id.slice(-8)}</span> },
+    {
+      id: 'total',
+      header: 'Total TTC',
+      cell: (q) => formatCurrencyEUR(q.totalTTC ?? 0, locale),
+    },
+    {
+      id: 'status',
+      header: t('quotes:pipeline'),
+      cell: (q) => (
+        <Badge variant="primary" className="capitalize">
+          {q.status}
+        </Badge>
+      ),
+    },
+    {
+      id: 'pdf',
+      header: <span className="text-end">{t('common:actions')}</span>,
+      headerClassName: 'text-end',
+      cellClassName: 'text-end',
+      cell: (q) => (
+        <Button
+          size="sm"
+          variant="secondary"
+          type="button"
+          onClick={async () => {
+            try {
+              const res = await api.get(`/quotes/${q.id}/pdf`, { responseType: 'blob' })
+              const url = URL.createObjectURL(res.data as Blob)
+              window.open(url, '_blank', 'noopener')
+            } catch {
+              /* ignore */
+            }
+          }}
+        >
+          {t('quotes:previewPdf')}
+        </Button>
+      ),
+    },
+  ]
+
+  const invColumns: DataColumn<ApiInvoice>[] = [
+    { id: 'id', header: 'ID', cell: (x) => <span className="font-mono text-xs">{x.id.slice(-8)}</span> },
+    { id: 'ttc', header: 'Total TTC', cell: (x) => formatCurrencyEUR(x.totalTTC ?? 0, locale) },
+    {
+      id: 'st',
+      header: 'Statut',
+      cell: (x) => (
+        <Badge variant={x.status === 'paid' ? 'success' : 'warning'} className="capitalize">
+          {x.status}
+        </Badge>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-fluid-h1 font-semibold">{t('quotes:title')}</h1>
-        <p className="text-sm text-ink-secondary">Pipeline Devis → Factures (démo)</p>
+        <p className="text-sm text-ink-secondary">Devis et factures (API)</p>
       </div>
 
       <Tabs defaultValue="quotes">
@@ -67,38 +142,18 @@ export function QuotesPage() {
             <CardHeader>
               <CardTitle className="text-base">Liste des devis</CardTitle>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Total TTC</TableHead>
-                    <TableHead>{t('quotes:pipeline')}</TableHead>
-                    <TableHead className="text-end">{t('common:actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockQuotes.map((q) => (
-                    <TableRow key={q.id}>
-                      <TableCell className="font-mono text-xs">{q.id}</TableCell>
-                      <TableCell>{formatCurrencyEUR(q.totalTtc - q.discount, locale)}</TableCell>
-                      <TableCell>
-                        <Badge variant="primary">{q.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-end">
-                        <Button size="sm" variant="secondary" type="button" onClick={() => setPreview(true)}>
-                          {t('quotes:previewPdf')}
-                        </Button>
-                        {q.status === 'accepted' ? (
-                          <Button className="ms-2" size="sm" type="button">
-                            {t('quotes:convert')}
-                          </Button>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <CardContent>
+              <QueryBoundary
+                isLoading={qLoading}
+                isError={qErr}
+                error={qError as Error}
+                onRetry={() => void refetchQ()}
+                isEmpty={!qLoading && quotes.length === 0}
+                loading={<TableSkeleton rows={5} />}
+                empty={<p className="text-sm text-ink-muted">Aucun devis</p>}
+              >
+                <DataTable columns={quoteColumns} data={quotes} getRowKey={(q) => q.id} />
+              </QueryBoundary>
             </CardContent>
           </ClayCard>
 
@@ -156,45 +211,23 @@ export function QuotesPage() {
             <CardHeader>
               <CardTitle className="text-base">{t('quotes:invoices')}</CardTitle>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Total TTC</TableHead>
-                    <TableHead>Statut</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockInvoices.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-mono text-xs">{inv.id}</TableCell>
-                      <TableCell>{formatCurrencyEUR(inv.totalTtc, locale)}</TableCell>
-                      <TableCell>
-                        <Badge variant={inv.status === 'paid' ? 'success' : 'warning'}>{inv.status}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <CardContent>
+              <QueryBoundary
+                isLoading={iLoading}
+                isError={iErr}
+                error={iError as Error}
+                onRetry={() => void refetchI()}
+                isEmpty={!iLoading && invoices.length === 0}
+                loading={<TableSkeleton rows={5} />}
+                empty={<p className="text-sm text-ink-muted">Aucune facture</p>}
+              >
+                <DataTable columns={invColumns} data={invoices} getRowKey={(x) => x.id} />
+              </QueryBoundary>
             </CardContent>
           </ClayCard>
         </TabsContent>
       </Tabs>
 
-      <Dialog open={preview} onOpenChange={setPreview}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t('quotes:previewPdf')}</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-[320px] rounded-[var(--radius-card)] border border-[var(--border)] bg-white p-6 text-black">
-            <p className="text-lg font-bold">GarageFlow</p>
-            <p className="text-sm">Aperçu PDF simulé (iframe/html démo)</p>
-            <hr className="my-4" />
-            <p>Total TTC : {formatCurrencyEUR(mockQuotes[0]?.totalTtc ?? 0, locale)}</p>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

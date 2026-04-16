@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Briefcase,
   Calendar,
@@ -10,6 +11,7 @@ import {
   Settings,
   Sparkles,
   Store,
+  UserCog,
   Users,
   Wrench,
 } from 'lucide-react'
@@ -18,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/auth'
 
 const primary = [
   { to: '/', icon: LayoutDashboard, labelKey: 'dashboard' as const },
@@ -26,16 +29,26 @@ const primary = [
   { to: '/stock', icon: Package, labelKey: 'stock' as const },
 ]
 
-const sheetLinks = [
-  { to: '/vehicles', icon: Car, labelKey: 'vehicles' as const },
-  { to: '/repairs', icon: Wrench, labelKey: 'repairs' as const },
-  { to: '/quotes', icon: FileText, labelKey: 'quotes' as const },
-  { to: '/chatbot', icon: Sparkles, labelKey: 'ia' as const },
-  { to: '/hr', icon: Briefcase, labelKey: 'hr' as const },
-  { to: '/loyalty', icon: Gift, labelKey: 'loyalty' as const },
-  { to: '/storefront', icon: Store, labelKey: 'storefront' as const },
-  { to: '/settings', icon: Settings, labelKey: 'settings' as const },
-]
+function useSheetLinks() {
+  const role = useAuthStore((s) => s.user?.role)
+  return useMemo(() => {
+    const team =
+      role === 'manager'
+        ? [{ to: '/users', icon: UserCog, labelKey: 'team' as const }]
+        : []
+    return [
+      ...team,
+      { to: '/vehicles', icon: Car, labelKey: 'vehicles' as const },
+      { to: '/repairs', icon: Wrench, labelKey: 'repairs' as const },
+      { to: '/quotes', icon: FileText, labelKey: 'quotes' as const },
+      { to: '/chatbot', icon: Sparkles, labelKey: 'ia' as const },
+      { to: '/hr', icon: Briefcase, labelKey: 'hr' as const },
+      { to: '/loyalty', icon: Gift, labelKey: 'loyalty' as const },
+      { to: '/storefront', icon: Store, labelKey: 'storefront' as const },
+      { to: '/settings', icon: Settings, labelKey: 'settings' as const },
+    ]
+  }, [role])
+}
 
 export function MobileGarageNav({
   sheetOpen,
@@ -45,6 +58,7 @@ export function MobileGarageNav({
   setSheetOpen: (v: boolean) => void
 }) {
   const { t } = useTranslation('navigation')
+  const sheetLinks = useSheetLinks()
 
   return (
     <>

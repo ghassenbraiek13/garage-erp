@@ -120,7 +120,7 @@ export interface Part {
 }
 
 export type TaskPriority = 'low' | 'medium' | 'high'
-export type TaskStatus = 'todo' | 'doing' | 'done'
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
 
 export interface Task {
   id: string

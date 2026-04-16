@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Calendar,
   Car,
@@ -8,6 +9,7 @@ import {
   Package,
   Settings,
   Sparkles,
+  UserCog,
   Users,
   Wrench,
 } from 'lucide-react'
@@ -20,23 +22,49 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
 import { useLayoutStore } from '@/store/layout'
 
-const items = [
-  { to: '/', icon: LayoutDashboard, labelKey: 'dashboard' as const, accent: false },
-  { to: '/clients', icon: Users, labelKey: 'clients' as const, accent: false },
-  { to: '/vehicles', icon: Car, labelKey: 'vehicles' as const, accent: false },
-  { to: '/repairs', icon: Wrench, labelKey: 'repairs' as const, accent: false },
-  { to: '/quotes', icon: FileText, labelKey: 'quotes' as const, accent: false },
-  { to: '/stock', icon: Package, labelKey: 'stock' as const, accent: false },
-  { to: '/planning', icon: Calendar, labelKey: 'planning' as const, accent: false },
-  { to: '/chatbot', icon: Sparkles, labelKey: 'ia' as const, accent: true },
-]
+type NavItem = {
+  to: string
+  icon: typeof LayoutDashboard
+  labelKey:
+    | 'dashboard'
+    | 'clients'
+    | 'team'
+    | 'vehicles'
+    | 'repairs'
+    | 'quotes'
+    | 'stock'
+    | 'planning'
+    | 'ia'
+  accent: boolean
+}
 
 export function GarageSidebar() {
   const { t } = useTranslation('navigation')
   const collapsed = useLayoutStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar)
   const logout = useAuthStore((s) => s.logout)
+  const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
+
+  const items = useMemo((): NavItem[] => {
+    const core: NavItem[] = [
+      { to: '/', icon: LayoutDashboard, labelKey: 'dashboard', accent: false },
+      { to: '/clients', icon: Users, labelKey: 'clients', accent: false },
+    ]
+    const team: NavItem[] =
+      user?.role === 'manager'
+        ? [{ to: '/users', icon: UserCog, labelKey: 'team', accent: false }]
+        : []
+    const rest: NavItem[] = [
+      { to: '/vehicles', icon: Car, labelKey: 'vehicles', accent: false },
+      { to: '/repairs', icon: Wrench, labelKey: 'repairs', accent: false },
+      { to: '/quotes', icon: FileText, labelKey: 'quotes', accent: false },
+      { to: '/stock', icon: Package, labelKey: 'stock', accent: false },
+      { to: '/planning', icon: Calendar, labelKey: 'planning', accent: false },
+      { to: '/chatbot', icon: Sparkles, labelKey: 'ia', accent: true },
+    ]
+    return [...core, ...team, ...rest]
+  }, [user?.role])
 
   return (
     <TooltipProvider delayDuration={200}>

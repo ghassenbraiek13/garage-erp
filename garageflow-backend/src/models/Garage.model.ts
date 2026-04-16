@@ -64,7 +64,6 @@ const garageSchema = new Schema<IGarage>(
   { timestamps: true },
 )
 
-garageSchema.index({ slug: 1 }, { unique: true })
 garageSchema.index({ subscriptionStatus: 1 })
 
 garageSchema.pre('save', function preSave(next) {

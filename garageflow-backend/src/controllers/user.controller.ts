@@ -26,7 +26,7 @@ export async function create(req: Request, res: Response): Promise<void> {
     email: string
     password: string
     name: string
-    role: 'mechanic' | 'cashier'
+    role: 'mechanic' | 'cashier' | 'manager'
   }
   const u = await User.create({ email, password, name, role, garageId })
   res.status(201).json(ok(u.toJSON()))

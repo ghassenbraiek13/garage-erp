@@ -71,21 +71,92 @@ export async function usersList(req: Request, res: Response): Promise<void> {
 }
 
 export async function stats(req: Request, res: Response): Promise<void> {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
   const garages = await Garage.countDocuments({})
+  const activeGarages = await Garage.countDocuments({ subscriptionStatus: 'active' })
+  const suspendedGarages = await Garage.countDocuments({ subscriptionStatus: 'suspended' })
   const users = await User.countDocuments({})
   const revenueAgg = await Invoice.aggregate([
     { $match: { status: 'paid' } },
     { $group: { _id: null, total: { $sum: '$totalTTC' } } },
   ])
+  const monthlyRevenueAgg = await Invoice.aggregate([
+    { $match: { status: 'paid', paidAt: { $gte: monthStart } } },
+    { $group: { _id: null, total: { $sum: '$totalTTC' } } },
+  ])
   const repairs = await Repair.countDocuments({})
+
+  const tierDistribution = await Garage.aggregate([
+    { $group: { _id: '$subscriptionTier', count: { $sum: 1 } } },
+  ])
+
+  const sixMonthsAgo = new Date(now)
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  const topGaragesRevenue = await Invoice.aggregate([
+    { $match: { status: 'paid', paidAt: { $gte: sixMonthsAgo } } },
+    { $group: { _id: '$garageId', revenue: { $sum: '$totalTTC' } } },
+    { $sort: { revenue: -1 } },
+    { $limit: 10 },
+    {
+      $lookup: {
+        from: 'garages',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'g',
+      },
+    },
+    { $unwind: '$g' },
+    { $project: { name: '$g.name', revenue: 1 } },
+  ])
+
+  const signupsByMonth: { month: string; count: number }[] = []
+  for (let i = 11; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)
+    const c = await Garage.countDocuments({ createdAt: { $gte: d, $lte: end } })
+    signupsByMonth.push({
+      month: d.toLocaleString('fr-FR', { month: 'short', year: '2-digit' }),
+      count: c,
+    })
+  }
+
+  const subscriptionsActive = await Garage.countDocuments({ subscriptionStatus: 'active' })
+  const subscriptionsExpired = await Garage.countDocuments({
+    subscriptionExpiresAt: { $lt: now },
+  })
+
   res.json(
     ok({
       garages,
+      activeGarages,
+      suspendedGarages,
       users,
       revenue: Math.round(revenueAgg[0]?.total ?? 0),
+      monthlyRevenue: Math.round(monthlyRevenueAgg[0]?.total ?? 0),
       repairs,
+      tierDistribution: tierDistribution.map((t) => ({ tier: t._id, count: t.count })),
+      topGaragesRevenue,
+      signupsByMonth,
+      subscriptionsActive,
+      subscriptionsExpired,
     }),
   )
+}
+
+export async function activity(_req: Request, res: Response): Promise<void> {
+  const garages = await Garage.find().sort({ updatedAt: -1 }).limit(20).lean()
+  const rows = garages.map((g) => {
+    const created = g.createdAt && g.updatedAt && g.createdAt.getTime() === g.updatedAt.getTime()
+    return {
+      garage: g.name,
+      action: created ? 'Nouveau garage' : g.subscriptionStatus === 'suspended' ? 'Statut / abonnement' : 'Mise à jour',
+      date: g.updatedAt,
+      status: g.subscriptionStatus,
+    }
+  })
+  res.json(ok(rows))
 }
 
 export async function subscriptionsList(_req: Request, res: Response): Promise<void> {

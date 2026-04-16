@@ -17,6 +17,7 @@ r.delete('/garages/:id', ctrl.garageDelete)
 
 r.get('/users', ctrl.usersList)
 r.get('/stats', ctrl.stats)
+r.get('/activity', ctrl.activity)
 r.get('/subscriptions', ctrl.subscriptionsList)
 r.patch('/subscriptions/:garageId', ctrl.subscriptionPatch)
 

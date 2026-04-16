@@ -11,7 +11,8 @@ import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/ca
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { mockClients } from '@/mocks/mockClients'
+import { useClientsList } from '@/hooks/api/useClients'
+import { useCouponsList } from '@/hooks/api/useCoupons'
 
 const couponSchema = z.object({
   type: z.enum(['percent', 'fixed']),
@@ -21,18 +22,17 @@ const couponSchema = z.object({
   usageLimit: z.coerce.number().min(1),
 })
 
-const tiers = ['Bronze', 'Silver', 'Gold'] as const
-
 export function LoyaltyPage() {
   const { t } = useTranslation('loyalty')
   const [open, setOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
   const form = useForm<z.infer<typeof couponSchema>>({ resolver: zodResolver(couponSchema), defaultValues: { type: 'percent' } })
 
-  const coupons = [
-    { code: 'GF10', value: '10%', expires: '2026-06-01' },
-    { code: 'GF25', value: '25€', expires: '2026-05-15' },
-  ]
+  const { data: clientsData } = useClientsList(undefined, 1, 50)
+  const clients = clientsData?.items ?? []
+
+  const { data: couponsData } = useCouponsList()
+  const coupons = couponsData?.items ?? []
 
   return (
     <div className="space-y-4">
@@ -47,15 +47,17 @@ export function LoyaltyPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {mockClients.slice(0, 9).map((c, idx) => (
+        {clients.slice(0, 12).map((c) => (
           <ClayCard key={c.id} variant="elevated">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-base">{c.name}</CardTitle>
-              <Badge variant="purple">{tiers[idx % tiers.length]}</Badge>
+              <Badge variant="purple" className="capitalize">
+                {c.loyaltyTier ?? '—'}
+              </Badge>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p>
-                {t('points')}: <span className="font-semibold">{c.loyaltyPoints}</span>
+                {t('points')}: <span className="font-semibold">{c.loyaltyPoints ?? 0}</span>
               </p>
               <p className="text-xs text-ink-secondary">Historique disponible dans le CRM.</p>
             </CardContent>
@@ -69,9 +71,11 @@ export function LoyaltyPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {coupons.map((cp) => (
-            <div key={cp.code} className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-sidebar)] px-3 py-2 text-sm">
+            <div key={cp.id} className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-sidebar)] px-3 py-2 text-sm">
               <span className="font-mono font-semibold">{cp.code}</span>
-              <span className="text-ink-secondary">{cp.value}</span>
+              <span className="text-ink-secondary">
+                {cp.type === 'percent' ? `${cp.value ?? 0}%` : `${cp.value ?? 0} €`}
+              </span>
               <Button
                 size="sm"
                 variant="secondary"

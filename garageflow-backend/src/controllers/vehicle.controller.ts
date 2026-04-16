@@ -18,6 +18,9 @@ export async function list(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
   const { page, limit, sort, order, search } = parsePagination(req.query as Record<string, unknown>)
   const filter: Record<string, unknown> = { garageId }
+  if (req.user?.role === 'client' && req.user.clientId) {
+    filter.clientId = new mongoose.Types.ObjectId(req.user.clientId)
+  }
   if (search) {
     filter.$or = [
       { plate: new RegExp(search, 'i') },
@@ -31,7 +34,11 @@ export async function list(req: Request, res: Response): Promise<void> {
 
 export async function getOne(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
-  const v = await Vehicle.findOne({ _id: req.params.id, garageId })
+  const filter: Record<string, unknown> = { _id: req.params.id, garageId }
+  if (req.user?.role === 'client' && req.user.clientId) {
+    filter.clientId = new mongoose.Types.ObjectId(req.user.clientId)
+  }
+  const v = await Vehicle.findOne(filter)
   if (!v) {
     res.status(404).json({ success: false, message: 'Not found' })
     return
