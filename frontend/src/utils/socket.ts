@@ -1,11 +1,12 @@
 import { io, type Socket } from 'socket.io-client'
+import { getSocketUrl } from '@/config/env'
 import { getAccessToken } from '@/utils/authToken'
 
 let socket: Socket | null = null
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(import.meta.env.VITE_SOCKET_URL as string, {
+    socket = io(getSocketUrl(), {
       autoConnect: false,
       auth: { token: getAccessToken() ?? '' },
     })

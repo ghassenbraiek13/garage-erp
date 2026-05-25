@@ -7,10 +7,11 @@ import fs from 'fs/promises'
 import { Vehicle, type IVehicle } from '@/models/Vehicle.model'
 import { Client } from '@/models/Client.model'
 import { Repair } from '@/models/Repair.model'
-import { ok } from '@/utils/apiResponse'
+import axios from 'axios'
+import { ok, fail } from '@/utils/apiResponse'
 import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
-import { decodeVin } from '@/services/vin.service'
+import { decodeVin, getVinMatches } from '@/services/vin.service'
 
 const VehiclePaged = Vehicle as unknown as PaginateModel<IVehicle>
 
@@ -49,7 +50,16 @@ export async function getOne(req: Request, res: Response): Promise<void> {
 export async function create(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
   const body = req.body as Record<string, unknown>
-  const clientId = new mongoose.Types.ObjectId(String(body.clientId))
+  let clientIdStr = String(body.clientId)
+  if (req.user?.role === 'client') {
+    if (!req.user.clientId) {
+      res.status(403).json({ success: false, message: 'Forbidden' })
+      return
+    }
+    clientIdStr = req.user.clientId
+    body.clientId = clientIdStr
+  }
+  const clientId = new mongoose.Types.ObjectId(clientIdStr)
   const client = await Client.findOne({ _id: clientId, garageId })
   if (!client) {
     res.status(400).json({ success: false, message: 'Invalid client' })
@@ -85,10 +95,64 @@ export async function listRepairs(req: Request, res: Response): Promise<void> {
   res.json(ok(r))
 }
 
+export async function vinMatches(req: Request, res: Response): Promise<void> {
+  try {
+    assertGarage(req)
+    const vin = String(req.params.vin ?? '').trim().toUpperCase()
+    if (vin.length !== 17) {
+      res.status(400).json(fail('VIN invalide — 17 caractères requis'))
+      return
+    }
+    const matches = await getVinMatches(vin)
+    if (matches.length === 0) {
+      res.status(404).json(fail('Aucun véhicule trouvé pour ce VIN'))
+      return
+    }
+    res.json(ok(matches))
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      if (err.response?.status === 404) {
+        res.status(404).json(fail('Aucun véhicule trouvé pour ce VIN'))
+        return
+      }
+      if (err.response?.status === 429) {
+        res.status(429).json(fail('Limite API atteinte — reessayez plus tard'))
+        return
+      }
+    }
+    const message = err instanceof Error ? err.message : 'Erreur décodage VIN'
+    res.status(400).json(fail(message))
+  }
+}
+
 export async function vinDecode(req: Request, res: Response): Promise<void> {
-  assertGarage(req)
-  const data = await decodeVin(req.params.vin)
-  res.json(ok(data))
+  try {
+    assertGarage(req)
+    const vin = String(req.params.vin ?? '').trim().toUpperCase()
+    if (!vin || vin.length !== 17) {
+      res.status(400).json(fail('Le VIN doit contenir exactement 17 caracteres'))
+      return
+    }
+    const matchId = typeof req.query.matchId === 'string' ? req.query.matchId : undefined
+    const matchType = typeof req.query.matchType === 'string' ? req.query.matchType : undefined
+    const match =
+      matchId && matchType ? { id: matchId, recordType: matchType } : undefined
+    const result = await decodeVin(vin.toUpperCase(), match)
+    res.json(ok(result))
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      if (err.response?.status === 404) {
+        res.status(404).json(fail('VIN non reconnu — verifiez le numero saisi'))
+        return
+      }
+      if (err.response?.status === 429) {
+        res.status(429).json(fail('Limite API atteinte — reessayez plus tard'))
+        return
+      }
+    }
+    const message = err instanceof Error ? err.message : 'Erreur lors du decodage VIN'
+    res.status(400).json(fail(message))
+  }
 }
 
 export async function uploadPhotos(req: Request, res: Response): Promise<void> {

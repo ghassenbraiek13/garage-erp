@@ -25,6 +25,8 @@ import { useDashboardStats } from '@/hooks/api/useDashboard'
 import { useChartTheme } from '@/hooks/useChartTheme'
 import { cn, formatCurrencyEUR } from '@/lib/utils'
 import { useLocaleStore } from '@/store/locale'
+import { useAuthStore } from '@/store/auth'
+import { MechanicDashboard } from '@/pages/dashboard/MechanicDashboard'
 type RepairRow = {
   id: string
   status: string
@@ -49,6 +51,14 @@ function mapRepairStatus(s: string): 'in_progress' | 'completed' | 'pending' | '
 }
 
 export function DashboardPage(): React.ReactElement {
+  const role = useAuthStore((s) => s.user?.role)
+  if (role === 'mechanic') {
+    return <MechanicDashboard />
+  }
+  return <ManagerDashboardView />
+}
+
+function ManagerDashboardView(): React.ReactElement {
   const { t } = useTranslation(['dashboard', 'common'])
   const locale = useLocaleStore((s) => s.locale)
   const { data: stats, isLoading, isError, error, refetch } = useDashboardStats()

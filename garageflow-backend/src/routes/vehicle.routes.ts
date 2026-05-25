@@ -8,14 +8,25 @@ import { uploadVehiclePhoto } from '@/middleware/upload.middleware'
 
 const r = Router()
 
-r.get('/vin/:vin', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.vinDecode)
+r.get(
+  '/vin/:vin(*)/matches',
+  verifyToken,
+  requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'),
+  ctrl.vinMatches,
+)
+r.get(
+  '/vin/:vin(*)',
+  verifyToken,
+  requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'),
+  ctrl.vinDecode,
+)
 r.get('/', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.list)
 r.get('/:id/repairs', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.listRepairs)
 r.get('/:id', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.getOne)
 r.post(
   '/',
   verifyToken,
-  requireRole('manager', 'cashier', 'superadmin'),
+  requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'),
   validateBody(CreateVehicleSchema),
   ctrl.create,
 )

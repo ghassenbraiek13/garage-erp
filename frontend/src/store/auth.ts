@@ -9,10 +9,11 @@ export const useAuthStore = create<{
   setUser: (user: User | null) => void
   setAccessToken: (token: string | null) => void
   login: (email: string, password: string, role: UserRole) => Promise<void>
+  clearAuth: () => void
   logout: () => Promise<void>
 }>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       setUser: (user) => set({ user }),
@@ -28,6 +29,10 @@ export const useAuthStore = create<{
         setTokenRef(token)
         set({ accessToken: token, user: u })
       },
+      clearAuth: () => {
+        setTokenRef(null)
+        set({ accessToken: null, user: null })
+      },
       logout: async () => {
         try {
           const { default: api } = await import('@/utils/api')
@@ -35,8 +40,7 @@ export const useAuthStore = create<{
         } catch {
           /* ignore */
         }
-        setTokenRef(null)
-        set({ accessToken: null, user: null })
+        get().clearAuth()
       },
     }),
     {

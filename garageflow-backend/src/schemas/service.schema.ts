@@ -14,6 +14,7 @@ export const CreateServiceSchema = z.object({
     'autre',
   ]),
   description: z.string().optional(),
+  diagnosticKind: z.enum(['general', 'purchase_consultation', 'purchase_general']).optional().nullable(),
   price: z.number().min(0),
   duration: z.number().int().min(1),
   isActive: z.boolean().optional(),

@@ -1,54 +1,13 @@
-import { useMemo } from 'react'
-import {
-  Briefcase,
-  Calendar,
-  Car,
-  FileText,
-  Gift,
-  LayoutDashboard,
-  MoreHorizontal,
-  Package,
-  Settings,
-  Sparkles,
-  Store,
-  UserCog,
-  Users,
-  Wrench,
-} from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { SidebarLogoutButton } from '@/components/layout/SidebarLogoutButton'
+import { filterGarageNavByRole, GARAGE_NAV_ITEMS } from '@/config/garageNav'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
-
-const primary = [
-  { to: '/', icon: LayoutDashboard, labelKey: 'dashboard' as const },
-  { to: '/clients', icon: Users, labelKey: 'clients' as const },
-  { to: '/planning', icon: Calendar, labelKey: 'planning' as const },
-  { to: '/stock', icon: Package, labelKey: 'stock' as const },
-]
-
-function useSheetLinks() {
-  const role = useAuthStore((s) => s.user?.role)
-  return useMemo(() => {
-    const team =
-      role === 'manager'
-        ? [{ to: '/users', icon: UserCog, labelKey: 'team' as const }]
-        : []
-    return [
-      ...team,
-      { to: '/vehicles', icon: Car, labelKey: 'vehicles' as const },
-      { to: '/repairs', icon: Wrench, labelKey: 'repairs' as const },
-      { to: '/quotes', icon: FileText, labelKey: 'quotes' as const },
-      { to: '/chatbot', icon: Sparkles, labelKey: 'ia' as const },
-      { to: '/hr', icon: Briefcase, labelKey: 'hr' as const },
-      { to: '/loyalty', icon: Gift, labelKey: 'loyalty' as const },
-      { to: '/storefront', icon: Store, labelKey: 'storefront' as const },
-      { to: '/settings', icon: Settings, labelKey: 'settings' as const },
-    ]
-  }, [role])
-}
 
 export function MobileGarageNav({
   sheetOpen,
@@ -58,7 +17,11 @@ export function MobileGarageNav({
   setSheetOpen: (v: boolean) => void
 }) {
   const { t } = useTranslation('navigation')
-  const sheetLinks = useSheetLinks()
+  const role = useAuthStore((s) => s.user?.role)
+
+  const visibleItems = useMemo(() => filterGarageNavByRole(GARAGE_NAV_ITEMS, role), [role])
+  const primaryItems = visibleItems.slice(0, 4)
+  const sheetItems = visibleItems.slice(4)
 
   return (
     <>
@@ -66,13 +29,13 @@ export function MobileGarageNav({
         className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-between border-t border-[var(--border)] bg-[var(--bg-surface)]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-clay md:hidden"
         aria-label="Navigation mobile"
       >
-        {primary.map((it) => {
+        {primaryItems.map((it) => {
           const Icon = it.icon
           return (
             <NavLink
-              key={it.to}
-              to={it.to}
-              end={it.to === '/'}
+              key={`${it.path}-${it.labelKey}`}
+              to={it.path}
+              end={it.end ?? it.path === '/'}
               className={({ isActive }) =>
                 cn(
                   'flex min-h-11 min-w-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-semibold',
@@ -85,22 +48,24 @@ export function MobileGarageNav({
             </NavLink>
           )
         })}
-        <Button
-          type="button"
-          variant="ghost"
-          className={cn(
-            'flex min-h-11 min-w-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-semibold',
-            sheetOpen ? 'text-clay-primary' : 'text-ink-muted',
-          )}
-          onClick={() => setSheetOpen(true)}
-        >
-          <MoreHorizontal className="h-5 w-5" />
-          <span>{t('more')}</span>
-        </Button>
+        {sheetItems.length > 0 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className={cn(
+              'flex min-h-11 min-w-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-semibold',
+              sheetOpen ? 'text-clay-primary' : 'text-ink-muted',
+            )}
+            onClick={() => setSheetOpen(true)}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            <span>{t('more')}</span>
+          </Button>
+        ) : null}
       </nav>
 
       <AnimatePresence>
-        {sheetOpen ? (
+        {sheetOpen && sheetItems.length > 0 ? (
           <motion.div
             className="fixed inset-0 z-50 md:hidden"
             initial={{ opacity: 0 }}
@@ -122,14 +87,14 @@ export function MobileGarageNav({
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
               className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-[20px] border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-clay backdrop-blur-clay"
             >
-              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[var(--border)]" />
-              <div className="grid grid-cols-2 gap-3">
-                {sheetLinks.map((it) => {
+              <motion.div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[var(--border)]" />
+              <motion.div className="grid grid-cols-2 gap-3">
+                {sheetItems.map((it) => {
                   const Icon = it.icon
                   return (
                     <NavLink
-                      key={it.to}
-                      to={it.to}
+                      key={`${it.path}-${it.labelKey}`}
+                      to={it.path}
                       onClick={() => setSheetOpen(false)}
                       className={({ isActive }) =>
                         cn(
@@ -143,7 +108,10 @@ export function MobileGarageNav({
                     </NavLink>
                   )
                 })}
-              </div>
+              </motion.div>
+              <motion.div className="mt-4 border-t border-[var(--border)] pt-3">
+                <SidebarLogoutButton />
+              </motion.div>
             </motion.div>
           </motion.div>
         ) : null}

@@ -11,6 +11,7 @@ import { sendPdfAttachment } from '@/services/email.service'
 import { Client } from '@/models/Client.model'
 import { Garage } from '@/models/Garage.model'
 import { exportInvoicesMonthExcel } from '@/services/excel.service'
+import { getEnv } from '@/config/env'
 
 const InvoicePaged = Invoice as unknown as PaginateModel<IInvoice>
 
@@ -138,8 +139,32 @@ export async function sendEmail(req: Request, res: Response): Promise<void> {
     res.status(400).json({ success: false, message: 'Client has no email' })
     return
   }
-  const buf = await generateInvoicePDF({ ...inv.toObject(), garage: g ?? undefined, client: c ?? undefined })
-  await sendPdfAttachment(c.email, `Facture ${inv.number}`, `${inv.number}.pdf`, buf)
+  const env = getEnv()
+  const backendBase =
+    env.BACKEND_URL?.replace(/\/$/, '') ?? `http://localhost:${env.PORT}`
+  const pdfUrl = `${backendBase}/api/v1/invoices/${inv._id.toString()}/pdf`
+
+  if (env.N8N_INVOICE_WEBHOOK_URL) {
+    const webhookRes = await fetch(env.N8N_INVOICE_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: c.email,
+        clientName: c.name,
+        invoiceNumber: inv.number,
+        totalTTC: inv.totalTTC,
+        factureId: inv._id.toString(),
+        pdfUrl,
+      }),
+    })
+    if (!webhookRes.ok) {
+      res.status(502).json({ success: false, message: 'n8n webhook failed' })
+      return
+    }
+  } else {
+    const buf = await generateInvoicePDF({ ...inv.toObject(), garage: g ?? undefined, client: c ?? undefined })
+    await sendPdfAttachment(c.email, `Facture ${inv.number}`, `${inv.number}.pdf`, buf)
+  }
   res.json(ok({ sent: true }))
 }
 

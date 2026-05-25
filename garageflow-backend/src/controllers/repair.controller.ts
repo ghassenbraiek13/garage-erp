@@ -14,6 +14,9 @@ export async function list(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
   const { page, limit, sort, order } = parsePagination(req.query as Record<string, unknown>)
   const filter: Record<string, unknown> = { garageId }
+  if (req.user?.role === 'client' && req.user.clientId) {
+    filter.clientId = new mongoose.Types.ObjectId(req.user.clientId)
+  }
   if (typeof req.query.status === 'string') filter.status = req.query.status
   if (typeof req.query.mechanicId === 'string' && mongoose.isValidObjectId(req.query.mechanicId)) {
     filter.mechanicId = new mongoose.Types.ObjectId(req.query.mechanicId)
@@ -21,7 +24,18 @@ export async function list(req: Request, res: Response): Promise<void> {
   if (typeof req.query.vehicleId === 'string' && mongoose.isValidObjectId(req.query.vehicleId)) {
     filter.vehicleId = new mongoose.Types.ObjectId(req.query.vehicleId)
   }
-  const result = await RepairPaged.paginate(filter, { page, limit, sort: { [sort]: order } })
+  const populate = [
+    { path: 'clientId', select: 'name email phone' },
+    { path: 'vehicleId', select: 'make model plate year' },
+    { path: 'mechanicId', select: 'name avatar' },
+    { path: 'serviceIds', select: 'name price' },
+  ]
+  const result = await RepairPaged.paginate(filter, {
+    page,
+    limit,
+    sort: { [sort]: order },
+    populate,
+  })
   res.json(ok(result.docs, buildMeta(result.totalDocs, page, limit)))
 }
 
@@ -73,6 +87,25 @@ export async function patchStatus(req: Request, res: Response): Promise<void> {
     vehicleId: r.vehicleId.toString(),
     mechanicId: r.mechanicId?.toString() ?? null,
   })
+
+  if (['in_progress', 'completed'].includes(status)) {
+    const populated = await Repair.findById(r._id).populate('vehicleId', 'plate make model')
+    if (populated) {
+      const vehicle = populated.vehicleId as { plate?: string; make?: string; model?: string } | null
+      io?.to(`client:${populated.clientId.toString()}`).emit('repair:notification', {
+        repairId: populated._id.toString(),
+        status,
+        vehicle: vehicle
+          ? { plate: vehicle.plate, make: vehicle.make, model: vehicle.model }
+          : null,
+        message:
+          status === 'in_progress'
+            ? 'Votre véhicule est en cours de réparation'
+            : 'Votre véhicule est prêt',
+      })
+    }
+  }
+
   res.json(ok(r.toJSON()))
 }
 

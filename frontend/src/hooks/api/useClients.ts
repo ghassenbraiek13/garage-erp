@@ -8,22 +8,38 @@ export type ApiClient = {
   phone: string
   email?: string
   address?: { street?: string; city?: string; postalCode?: string }
+  notes?: string
   loyaltyPoints?: number
   loyaltyTier?: string
   vehicleIds?: string[]
   totalSpent?: number
   createdAt?: string
   updatedAt?: string
+  lastVisitAt?: string
 }
 
 function mapClient(raw: Record<string, unknown>): ApiClient {
   const id = String(raw.id ?? raw._id ?? '')
   const vids = raw.vehicleIds
+  const lastVisitAt = raw.lastVisitAt ? String(raw.lastVisitAt) : undefined
   return {
     ...(raw as unknown as ApiClient),
     id,
     vehicleIds: Array.isArray(vids) ? vids.map((x) => String(x)) : [],
+    lastVisitAt,
   }
+}
+
+export function useExportCarnetPdf() {
+  return useMutation({
+    mutationFn: async ({ clientId, vehicleId }: { clientId: string; vehicleId: string }) => {
+      const res = await api.get(`/clients/${clientId}/export`, {
+        params: { vehiculeId: vehicleId },
+        responseType: 'blob',
+      })
+      return res.data as Blob
+    },
+  })
 }
 
 export function useClientsList(search?: string, page = 1, limit = 50) {
@@ -53,6 +69,42 @@ export function useCreateClient() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['clients'] })
+    },
+  })
+}
+
+export function useUpdateClient() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      body,
+    }: {
+      id: string
+      body: {
+        name: string
+        phone: string
+        email?: string
+        address?: { street?: string; city?: string; postalCode?: string }
+        notes?: string
+      }
+    }) => {
+      const { data } = await api.put(`/clients/${id}`, body)
+      return mapClient(data.data as Record<string, unknown>)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['clients'] })
+    },
+  })
+}
+
+export function useClientRepairs(clientId: string | undefined) {
+  return useQuery({
+    queryKey: ['clients', clientId, 'repairs'],
+    enabled: Boolean(clientId),
+    queryFn: async () => {
+      const { data } = await api.get<{ data: Record<string, unknown>[] }>(`/clients/${clientId}/repairs`)
+      return data.data.slice(0, 5)
     },
   })
 }

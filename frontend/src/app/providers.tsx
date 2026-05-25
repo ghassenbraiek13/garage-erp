@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import axios from 'axios'
 import { useEffect } from 'react'
 import { I18nextProvider } from 'react-i18next'
+import { getApiBaseUrl } from '@/config/env'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { i18n } from '@/i18n'
 import { useAuthStore } from '@/store/auth'
@@ -23,6 +24,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     hydrateTheme()
     hydrateLocale()
+    const theme = useThemeStore.getState().theme
+    document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light')
   }, [hydrateLocale, hydrateTheme])
 
   useEffect(() => {
@@ -31,23 +34,28 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void (async () => {
+      let token: string | undefined
       try {
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL}/auth/refresh`,
+          `${getApiBaseUrl()}/auth/refresh`,
           {},
           { withCredentials: true },
         )
-        const token = data?.data?.accessToken as string | undefined
+        token = data?.data?.accessToken as string | undefined
         if (token) useAuthStore.getState().setAccessToken(token)
       } catch {
-        /* pas de session */
-      }
-      try {
-        const { default: api } = await import('@/utils/api')
-        const { data } = await api.get('/auth/me')
-        useAuthStore.getState().setUser(data.data.user)
-      } catch {
+        useAuthStore.getState().setAccessToken(null)
         useAuthStore.getState().setUser(null)
+      }
+
+      if (token) {
+        try {
+          const { default: api } = await import('@/utils/api')
+          const { data } = await api.get('/auth/me')
+          useAuthStore.getState().setUser(data.data.user)
+        } catch {
+          useAuthStore.getState().setUser(null)
+        }
       }
     })()
   }, [])

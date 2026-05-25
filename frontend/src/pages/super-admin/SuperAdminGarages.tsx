@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable, type DataColumn } from '@/components/ui/DataTable'
 import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { CreateGarageModal } from '@/components/super-admin/CreateGarageModal'
 import type { ApiGarage } from '@/hooks/api/useSuperAdmin'
 import { useSuperAdminGarages } from '@/hooks/api/useSuperAdmin'
 
@@ -12,6 +13,7 @@ export function SuperAdminGarages(): React.ReactElement {
   const { t } = useTranslation('superAdmin')
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
+  const [createOpen, setCreateOpen] = useState(false)
   const { data, isLoading, isError, error, refetch } = useSuperAdminGarages(q.trim() || undefined, page)
   const rows = data?.items ?? []
   const meta = data?.meta
@@ -81,7 +83,9 @@ export function SuperAdminGarages(): React.ReactElement {
               setPage(1)
             }}
           />
-          <Button type="button">{t('createGarage')}</Button>
+          <Button type="button" onClick={() => setCreateOpen(true)}>
+            {t('createGarage')}
+          </Button>
         </div>
       </div>
 
@@ -102,6 +106,8 @@ export function SuperAdminGarages(): React.ReactElement {
           onPageChange={(p) => setPage(p)}
         />
       </QueryBoundary>
+
+      <CreateGarageModal open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )
 }

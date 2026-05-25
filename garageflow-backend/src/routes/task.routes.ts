@@ -8,6 +8,7 @@ import { CreateTaskSchema, TaskStatusSchema, UpdateTaskSchema } from '@/schemas/
 const r = Router()
 
 r.get('/kanban', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.kanban)
+r.get('/me', verifyToken, requireRole('mechanic', 'manager', 'superadmin'), ctrl.me)
 r.get('/', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.list)
 r.get('/:id', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.getOne)
 r.post(

@@ -32,6 +32,14 @@ export function initSockets(io: SocketServer): void {
     if (user.sub) {
       socket.join(`user:${user.sub}`)
     }
+    if (user.role === 'client' && user.clientId) {
+      socket.join(`client:${user.clientId}`)
+    }
+    socket.on('join:client', (clientId: string) => {
+      if (user.role === 'client' && user.clientId === clientId) {
+        socket.join(`client:${clientId}`)
+      }
+    })
     socket.on('task:statusChanged', (payload: { taskId: string; status: string }) => {
       if (user.garageId) {
         io.to(`garage:${user.garageId}`).emit('task:statusChanged', payload)

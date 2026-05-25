@@ -1,13 +1,19 @@
-import { useMemo } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
-import { useTasksKanban, usePatchTaskStatus, type ApiTask } from '@/hooks/api/useTasks'
+import { useCreateTask, useTasksKanban, usePatchTaskStatus, type ApiTask } from '@/hooks/api/useTasks'
 import { useMechanics } from '@/hooks/api/useUsers'
 import type { TaskStatus } from '@/types'
 import { toast } from 'sonner'
@@ -81,12 +87,15 @@ function Column({
   title,
   tasks,
   move,
+  onAddTask,
 }: {
   status: TaskStatus
   title: string
   tasks: ApiTask[]
   move: (id: string, status: TaskStatus) => void
+  onAddTask: () => void
 }) {
+  const { t } = useTranslation('hr')
   const [{ isOver }, drop] = useDrop(
     () => ({
       accept: ITEM,
@@ -110,19 +119,29 @@ function Column({
         {tasks.map((t) => (
           <TaskCard key={t.id} task={t} move={move} />
         ))}
-        <Button className="w-full" variant="ghost" type="button" onClick={() => toast.message('Création tâche — bientôt')}>
-          + Ajouter
+        <Button className="w-full" variant="ghost" type="button" onClick={onAddTask}>
+          + {t('addTask')}
         </Button>
       </div>
     </div>
   )
 }
 
+const taskSchema = z.object({
+  title: z.string().min(1),
+})
+
 export function HrPage(): React.ReactElement {
-  const { t } = useTranslation('hr')
+  const { t } = useTranslation(['hr', 'common'])
+  const [taskOpen, setTaskOpen] = useState(false)
   const { data, isLoading, isError, error, refetch } = useTasksKanban()
   const patch = usePatchTaskStatus()
+  const createTask = useCreateTask()
   const { data: mechanics } = useMechanics()
+  const taskForm = useForm<z.infer<typeof taskSchema>>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: { title: '' },
+  })
 
   const grouped = useMemo(() => {
     const todo = data?.todo ?? []
@@ -165,6 +184,7 @@ export function HrPage(): React.ReactElement {
                 title={t(c.titleKey)}
                 tasks={grouped[c.key]}
                 move={move}
+                onAddTask={() => setTaskOpen(true)}
               />
             ))}
           </div>
@@ -191,6 +211,35 @@ export function HrPage(): React.ReactElement {
             ))}
           </CardContent>
         </ClayCard>
+
+        <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('newTaskTitle')}</DialogTitle>
+            </DialogHeader>
+            <form
+              className="space-y-3"
+              onSubmit={taskForm.handleSubmit(async (values) => {
+                try {
+                  await createTask.mutateAsync({ title: values.title, status: 'todo' })
+                  toast.success(t('taskCreated'))
+                  setTaskOpen(false)
+                  taskForm.reset()
+                } catch {
+                  toast.error(t('taskCreateError'))
+                }
+              })}
+            >
+              <div>
+                <Label>{t('taskTitle')}</Label>
+                <Input {...taskForm.register('title')} />
+              </div>
+              <Button className="w-full" type="submit" disabled={createTask.isPending}>
+                {t('common:save')}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </DndProvider>
   )

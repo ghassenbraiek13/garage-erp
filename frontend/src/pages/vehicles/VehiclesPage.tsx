@@ -1,149 +1,140 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Search } from 'lucide-react'
+import { format } from 'date-fns'
+import { arSA, fr } from 'date-fns/locale'
+import { Eye, History, Pencil, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
-import { z } from 'zod'
+import { AddVehicleModal } from '@/components/portal/AddVehicleModal'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataTable, type DataColumn } from '@/components/ui/DataTable'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { useClientsList } from '@/hooks/api/useClients'
 import { useVehiclesList, type ApiVehicle } from '@/hooks/api/useVehicles'
-import api from '@/utils/api'
-
-const plateRegex = /^[A-Z]{2}-\d{3}-[A-Z]{2}$/i
-
-const vinSchema = z.object({
-  vin: z.string().length(17, 'VIN 17 caractères'),
-})
+import { useLocaleStore } from '@/store/locale'
 
 export function VehiclesPage(): React.ReactElement {
   const { t } = useTranslation(['vehicles', 'common'])
-  const [vinLoading, setVinLoading] = useState(false)
-  const [decoded, setDecoded] = useState<Record<string, unknown> | null>(null)
-  const [selected, setSelected] = useState<string | null>(null)
+  const locale = useLocaleStore((s) => s.locale)
+  const dateLocale = locale === 'ar' ? arSA : fr
+  const [search, setSearch] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
+  const [selected, setSelected] = useState<ApiVehicle | null>(null)
 
-  const [plateQ, setPlateQ] = useState('')
-  const [plateErr, setPlateErr] = useState<string | null>(null)
-  const vinForm = useForm<z.infer<typeof vinSchema>>({ resolver: zodResolver(vinSchema) })
-
-  const { data, isLoading, isError, error, refetch } = useVehiclesList(plateQ.trim() || undefined)
+  const { data, isLoading, isError, error, refetch } = useVehiclesList(search.trim() || undefined)
+  const { data: clientsData } = useClientsList(undefined, 1, 200)
   const vehicles = data?.items ?? []
 
-  const decodeVin = vinForm.handleSubmit(async (values) => {
-    setVinLoading(true)
-    setDecoded(null)
-    try {
-      const { data: res } = await api.get<{ data: Record<string, unknown> }>(`/vehicles/vin/${encodeURIComponent(values.vin)}`)
-      setDecoded(res.data)
-    } catch {
-      toast.error('Décodage VIN impossible')
-    } finally {
-      setVinLoading(false)
+  const clientNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const c of clientsData?.items ?? []) {
+      map.set(c.id, c.name)
     }
-  })
+    return map
+  }, [clientsData?.items])
 
-  const filtered = useMemo(() => {
-    const plate = plateQ.trim().toUpperCase()
-    if (!plate || !plateRegex.test(plate)) return vehicles
-    return vehicles.filter((v) => v.plate.replace(/\s/g, '').includes(plate.replace(/\s/g, '')))
-  }, [plateQ, vehicles])
+  const columns: DataColumn<ApiVehicle>[] = [
+    {
+      id: 'plate',
+      header: t('vehicles:plate'),
+      cell: (v) => <Badge variant="primary">{v.plate}</Badge>,
+    },
+    {
+      id: 'vehicle',
+      header: t('vehicles:vehicleLabel'),
+      cell: (v) => (
+        <span className="font-medium">
+          {v.make} {v.model}
+          {v.year ? ` (${v.year})` : ''}
+        </span>
+      ),
+    },
+    {
+      id: 'client',
+      header: t('vehicles:associatedClient'),
+      cell: (v) => clientNameById.get(v.clientId) ?? '—',
+    },
+    {
+      id: 'mileage',
+      header: t('vehicles:mileage'),
+      cell: (v) => `${(v.mileage ?? 0).toLocaleString(locale === 'ar' ? 'ar-TN' : 'fr-FR')} km`,
+    },
+    {
+      id: 'lastService',
+      header: t('vehicles:lastService'),
+      cell: (v) =>
+        v.lastServiceDate
+          ? format(new Date(v.lastServiceDate), 'PP', { locale: dateLocale })
+          : '—',
+    },
+    {
+      id: 'actions',
+      header: <span className="text-end">{t('common:actions')}</span>,
+      headerClassName: 'text-end',
+      cellClassName: 'text-end',
+      cell: (v) => (
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button size="sm" variant="secondary" type="button" onClick={() => setSelected(v)}>
+            <Eye className="h-3.5 w-3.5" />
+            {t('common:view')}
+          </Button>
+          <Button size="sm" variant="secondary" type="button" onClick={() => setSelected(v)}>
+            <Pencil className="h-3.5 w-3.5" />
+            {t('common:edit')}
+          </Button>
+          <Button size="sm" variant="ghost" type="button" onClick={() => setSelected(v)}>
+            <History className="h-3.5 w-3.5" />
+            {t('vehicles:history')}
+          </Button>
+        </div>
+      ),
+    },
+  ]
 
-  const v = vehicles.find((x) => x.id === selected)
+  const v = selected
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-fluid-h1 font-semibold">{t('vehicles:title')}</h1>
-        <p className="text-sm text-ink-secondary">VIN via API · recherche côté serveur</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ClayCard variant="elevated">
-          <CardHeader>
-            <CardTitle className="text-base">{t('vehicles:decode')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <form className="space-y-2" onSubmit={decodeVin}>
-              <Label htmlFor="vin">{t('vehicles:vin')}</Label>
-              <Input id="vin" {...vinForm.register('vin')} placeholder="VF3..." />
-              {vinForm.formState.errors.vin ? (
-                <p className="text-xs text-clay-red">{vinForm.formState.errors.vin.message}</p>
-              ) : null}
-              <Button className="w-full" type="submit" disabled={vinLoading}>
-                {vinLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {t('vehicles:decode')}
-              </Button>
-            </form>
-            {decoded ? (
-              <pre className="max-h-40 overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-sidebar)] p-3 text-xs text-[var(--text-primary)]">
-                {JSON.stringify(decoded, null, 2)}
-              </pre>
-            ) : null}
-          </CardContent>
-        </ClayCard>
-
-        <ClayCard variant="elevated">
-          <CardHeader>
-            <CardTitle className="text-base">Recherche plaque</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Label htmlFor="plate">{t('vehicles:plate')}</Label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-              <Input
-                id="plate"
-                className="ps-10"
-                placeholder="AB-123-CD"
-                value={plateQ}
-                onChange={(e) => {
-                  const val = e.target.value.toUpperCase()
-                  setPlateQ(val)
-                  setPlateErr(val && !plateRegex.test(val.trim()) ? t('vehicles:invalidPlate') : null)
-                }}
-              />
-            </div>
-            {plateErr ? <p className="text-xs text-clay-red">{plateErr}</p> : null}
-          </CardContent>
-        </ClayCard>
-      </div>
-
-      <QueryBoundary
-        isLoading={isLoading}
-        isError={isError}
-        error={error as Error}
-        onRetry={() => void refetch()}
-        isEmpty={!isLoading && filtered.length === 0}
-        loading={<TableSkeleton rows={5} />}
-        empty={<p className="text-sm text-ink-muted">Aucun véhicule</p>}
-      >
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((veh: ApiVehicle) => (
-            <button
-              key={veh.id}
-              type="button"
-              onClick={() => setSelected(veh.id)}
-              className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--bg-surface)] p-4 text-start shadow-clay backdrop-blur-clay transition hover:-translate-y-0.5"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <Badge variant="primary">{veh.plate}</Badge>
-                <span className="text-xs text-ink-muted">{veh.year ?? '—'}</span>
-              </div>
-              <p className="mt-2 font-semibold">
-                {veh.make} {veh.model}
-              </p>
-              <p className="text-xs text-ink-secondary">Client : {veh.clientId}</p>
-              <p className="mt-2 text-sm text-ink-secondary">
-                {(veh.mileage ?? 0).toLocaleString('fr-FR')} km · {t('vehicles:lastService')}: —
-              </p>
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-fluid-h1 font-semibold">{t('vehicles:title')}</h1>
+          <p className="text-sm text-ink-secondary">{t('vehicles:subtitle')}</p>
         </div>
-      </QueryBoundary>
+        <Button type="button" onClick={() => setAddOpen(true)}>
+          <Plus className="h-4 w-4" />
+          {t('vehicles:addVehicle')}
+        </Button>
+      </div>
+
+      <ClayCard variant="elevated">
+        <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base">{t('vehicles:listTitle')}</CardTitle>
+          <div className="relative w-full sm:max-w-md">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+            <Input
+              className="ps-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('common:search')}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <QueryBoundary
+            isLoading={isLoading}
+            isError={isError}
+            error={error as Error}
+            onRetry={() => void refetch()}
+            isEmpty={!isLoading && vehicles.length === 0}
+            loading={<TableSkeleton rows={6} />}
+            empty={<p className="text-sm text-ink-muted">{t('vehicles:empty')}</p>}
+          >
+            <DataTable columns={columns} data={vehicles} getRowKey={(veh) => veh.id} />
+          </QueryBoundary>
+        </CardContent>
+      </ClayCard>
 
       {v ? (
         <ClayCard variant="elevated">
@@ -152,10 +143,16 @@ export function VehiclesPage(): React.ReactElement {
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p>
+              {v.make} {v.model} — <span className="font-mono">{v.plate}</span>
+            </p>
+            <p>
               VIN: <span className="font-mono">{v.vin ?? '—'}</span>
             </p>
             <p>
-              {t('vehicles:mileage')}: {(v.mileage ?? 0).toLocaleString('fr-FR')} km
+              {t('vehicles:mileage')}: {(v.mileage ?? 0).toLocaleString(locale === 'ar' ? 'ar-TN' : 'fr-FR')} km
+            </p>
+            <p>
+              {t('vehicles:associatedClient')}: {clientNameById.get(v.clientId) ?? '—'}
             </p>
             <Button variant="secondary" type="button" onClick={() => setSelected(null)}>
               {t('common:close')}
@@ -163,6 +160,8 @@ export function VehiclesPage(): React.ReactElement {
           </CardContent>
         </ClayCard>
       ) : null}
+
+      <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} showClientSelect onCreated={() => void refetch()} />
     </div>
   )
 }

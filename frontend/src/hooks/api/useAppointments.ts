@@ -22,12 +22,27 @@ function mapAppt(raw: Record<string, unknown>): ApiAppointment {
   }
 }
 
-export function useAppointmentsList(range?: { start: string; end: string }) {
+export function useAppointmentsList(
+  range?: { start: string; end: string },
+  filters?: { mechanicId?: string },
+) {
   return useQuery({
-    queryKey: ['appointments', 'list', range],
+    queryKey: ['appointments', 'list', range, filters],
     queryFn: async () => {
       const { data } = await api.get<ApiListResponse<Record<string, unknown>>>('/appointments', {
-        params: range ? { start: range.start, end: range.end, limit: 200, page: 1 } : { limit: 200, page: 1 },
+        params: {
+          ...(range
+            ? {
+                start: range.start,
+                end: range.end,
+              }
+            : {}),
+          ...(filters?.mechanicId ? { mechanicId: filters.mechanicId } : {}),
+          limit: 200,
+          page: 1,
+          sort: 'start',
+          order: 'asc',
+        },
       })
       return { items: data.data.map(mapAppt), meta: data.meta }
     },
@@ -52,6 +67,57 @@ export function useUpdateAppointmentStatus() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['appointments'] })
+    },
+  })
+}
+
+export type CreateAppointmentBody = {
+  clientId: string
+  vehicleId: string
+  serviceId?: string
+  mechanicId?: string
+  start: string
+  end: string
+  notes?: string
+}
+
+export function useCreateAppointment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: CreateAppointmentBody) => {
+      const { data } = await api.post<{ data: unknown }>('/appointments', body)
+      return data.data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['appointments'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useDeleteAppointment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/appointments/${id}`)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['appointments'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useUpdateAppointment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: Partial<CreateAppointmentBody> }) => {
+      const { data } = await api.put<{ data: unknown }>(`/appointments/${id}`, body)
+      return data.data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['appointments'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }

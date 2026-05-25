@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -7,12 +6,20 @@ import type { AppLocale } from '@/store/locale'
 
 const flags: Record<AppLocale, string> = {
   fr: '🇫🇷',
-  ar: '🇩🇿',
+  ar: '🇹🇳',
+}
+
+const labels: Record<AppLocale, string> = {
+  fr: 'FR',
+  ar: 'TN',
+}
+
+function isLangActive(i18nLang: string, lng: AppLocale): boolean {
+  return i18nLang === lng || i18nLang.startsWith(`${lng}-`)
 }
 
 export function LangSwitch() {
   const { i18n } = useTranslation()
-  const locale = useLocaleStore((s) => s.locale)
   const setLocale = useLocaleStore((s) => s.setLocale)
 
   const switchTo = async (next: AppLocale) => {
@@ -27,7 +34,7 @@ export function LangSwitch() {
       aria-label="Langue"
     >
       {(['fr', 'ar'] as AppLocale[]).map((lng) => {
-        const active = locale === lng
+        const active = isLangActive(i18n.language, lng)
         return (
           <Button
             key={lng}
@@ -36,21 +43,14 @@ export function LangSwitch() {
             size="sm"
             className={cn(
               'relative h-9 rounded-full px-3',
-              active && 'text-white',
+              active && 'bg-clay-primary/10 font-medium text-clay-primary',
             )}
             onClick={() => void switchTo(lng)}
             aria-pressed={active}
           >
-            {active ? (
-              <motion.span
-                layoutId="lang-pill"
-                className="absolute inset-0 rounded-full bg-clay-primary shadow-clay"
-                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-              />
-            ) : null}
             <span className="relative z-10 flex items-center gap-2 text-xs font-semibold">
               <span aria-hidden>{flags[lng]}</span>
-              {lng.toUpperCase()}
+              {labels[lng]}
             </span>
           </Button>
         )

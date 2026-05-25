@@ -19,11 +19,19 @@ const envSchema = z.object({
   SMTP_FROM: z.string().min(1),
   UPLOAD_MAX_SIZE_MB: z.coerce.number().default(5),
   UPLOADS_DIR: z.string().default('./uploads'),
-  NHTSA_API_URL: z.string().url(),
+  AUTOREF_API_KEY: z.string().optional().default(''),
+  AUTOREF_BASE_URL: z.string().url().default('https://api-gateway.autoref.eu'),
+  /** Fenêtre rate limit (ms). Défaut : 15 min. */
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
-  RATE_LIMIT_MAX: z.coerce.number().default(100),
-  AUTH_RATE_LIMIT_MAX: z.coerce.number().default(10),
+  /** Requêtes max / fenêtre sur /api/v1 (hors auth). */
+  RATE_LIMIT_MAX: z.coerce.number().default(500),
+  /** Requêtes max / fenêtre sur /api/v1/auth. */
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().default(30),
   LOG_LEVEL: z.string().default('info'),
+  N8N_INVOICE_WEBHOOK_URL: z
+    .preprocess((v) => (v === '' || v === undefined ? undefined : v), z.string().url())
+    .optional(),
+  BACKEND_URL: z.preprocess((v) => (v === '' || v === undefined ? undefined : v), z.string().url()).optional(),
 })
 
 export type Env = z.infer<typeof envSchema>
@@ -46,3 +54,13 @@ export const env = new Proxy({} as Env, {
     return getEnv()[prop as keyof Env]
   },
 })
+
+/** Clés Autoref (proxy via backend uniquement). */
+export const autorefConfig = {
+  get autorefApiKey() {
+    return getEnv().AUTOREF_API_KEY ?? ''
+  },
+  get autorefBaseUrl() {
+    return getEnv().AUTOREF_BASE_URL ?? 'https://api-gateway.autoref.eu'
+  },
+}

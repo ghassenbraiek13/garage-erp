@@ -1,6 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, Sparkles } from 'lucide-react'
-import { motion } from 'framer-motion'
+import {
+  Calendar,
+  Eye,
+  EyeOff,
+  FileText,
+  LayoutDashboard,
+  TrendingUp,
+  Users,
+  Wrench,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -29,12 +37,26 @@ const roleTabs: { id: UserRole; label: string; demoEmail: string }[] = [
   { id: 'client', label: 'Client', demoEmail: 'client@garageflow.app' },
 ]
 
-const demoPasswords: Partial<Record<UserRole, string>> = {
-  manager: 'Manager@2024!',
-  mechanic: 'Mechanic@2024!',
-  superadmin: 'SuperAdmin@2024!',
-  client: 'Client@2024!',
-}
+const featureBullets = [
+  {
+    icon: LayoutDashboard,
+    text: 'Multi-garages, un seul tableau de bord',
+  },
+  {
+    icon: FileText,
+    text: 'Devis, factures et planning en temps réel',
+  },
+  {
+    icon: Calendar,
+    text: 'Planning et réparations en temps réel',
+  },
+] as const
+
+const statCards = [
+  { label: 'Clients actifs', value: '247', icon: Users },
+  { label: 'CA du mois', value: '12 400 DT', icon: TrendingUp },
+  { label: "RDV aujourd'hui", value: '+8', icon: Calendar },
+] as const
 
 export function LoginPage(): React.ReactElement {
   const { t } = useTranslation(['auth', 'common'])
@@ -43,8 +65,6 @@ export function LoginPage(): React.ReactElement {
   const [role, setRole] = useState<UserRole>('manager')
   const [showPw, setShowPw] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [demoOpen, setDemoOpen] = useState(false)
-
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '', remember: true },
@@ -60,9 +80,26 @@ export function LoginPage(): React.ReactElement {
     setSubmitting(true)
     try {
       await login(values.email, values.password, role)
-      if (role === 'superadmin') navigate('/super-admin/dashboard')
-      else if (role === 'client') navigate('/portal')
-      else navigate('/')
+      const user = useAuthStore.getState().user
+      switch (user?.role) {
+        case 'superadmin':
+          navigate('/super-admin/dashboard', { replace: true })
+          break
+        case 'manager':
+          navigate('/', { replace: true })
+          break
+        case 'mechanic':
+          navigate('/tasks', { replace: true })
+          break
+        case 'cashier':
+          navigate('/quotes', { replace: true })
+          break
+        case 'client':
+          navigate('/portal', { replace: true })
+          break
+        default:
+          navigate('/', { replace: true })
+      }
     } catch (e) {
       const msg =
         e && typeof e === 'object' && 'response' in e
@@ -74,123 +111,78 @@ export function LoginPage(): React.ReactElement {
     }
   })
 
-  const quickDemo = async (r: 'manager' | 'mechanic' | 'client') => {
-    const email = roleTabs.find((x) => x.id === r)?.demoEmail ?? ''
-    const password = demoPasswords[r] ?? ''
-    setRole(r)
-    form.setValue('email', email)
-    form.setValue('password', password)
-    setSubmitting(true)
-    try {
-      await login(email, password, r)
-      navigate(r === 'client' ? '/portal' : '/')
-    } catch {
-      toast.error('Démo indisponible — lancez le seed backend')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const [stat1, stat2, stat3] = statCards
+  const StatIcon1 = stat1.icon
+  const StatIcon2 = stat2.icon
+  const StatIcon3 = stat3.icon
 
   return (
     <div className="grid min-h-[100dvh] grid-cols-1 overflow-hidden lg:grid-cols-[55fr_45fr]">
-      {/* Left marketing panel — desktop only */}
-      <div className="relative hidden min-h-[100dvh] flex-col justify-between lg:flex">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `
-              radial-gradient(ellipse 100% 80% at -10% 110%, #1d4ed8 0%, transparent 50%),
-              radial-gradient(ellipse 80% 60% at 110% -10%, #7c3aed 0%, transparent 50%),
-              radial-gradient(ellipse 60% 60% at 50% 50%, #0f172a 0%, #080d1a 100%)
-            `,
-          }}
-        />
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 w-px"
-          style={{
-            background: 'linear-gradient(180deg, transparent, rgba(124,58,237,0.5), transparent)',
-          }}
-        />
+      <div className="relative hidden min-h-[100dvh] flex-col justify-between overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 p-10 lg:flex">
+        <div className="pointer-events-none absolute bottom-10 right-10 text-white opacity-5">
+          <Wrench className="h-64 w-64" aria-hidden />
+        </div>
 
-        {/* Decorative glass cards */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div
-            className="absolute left-[8%] top-[18%] w-40 -rotate-3 rounded-2xl border border-white/12 p-4 shadow-2xl backdrop-blur-xl"
-            style={{ background: 'rgba(255,255,255,0.07)' }}
-          >
-            <p className="text-xs text-white/70">Réparations</p>
-            <p className="text-2xl font-bold text-white opacity-90">128</p>
-            <span className="gf-stat-pulse mt-1 inline-block h-1 w-full rounded-full bg-white/20" />
+          <div className="absolute left-[8%] top-[18%] w-44 -rotate-3 rounded-2xl border border-white/20 bg-white/10 p-4 text-white backdrop-blur-sm">
+            <div className="mb-2 flex items-center gap-2">
+              <StatIcon1 className="h-4 w-4 text-blue-300" />
+              <p className="text-xs text-white/60">{stat1.label}</p>
+            </div>
+            <p className="text-2xl font-bold text-white">{stat1.value}</p>
           </div>
-          <div
-            className="absolute right-[10%] top-[32%] w-44 rotate-[5deg] rounded-2xl border border-white/12 p-4 shadow-2xl backdrop-blur-xl"
-            style={{ background: 'rgba(255,255,255,0.07)' }}
-          >
-            <p className="text-xs text-white/70">CA du mois</p>
-            <p className="text-2xl font-bold text-white opacity-90">48k €</p>
+          <div className="absolute right-[10%] top-[32%] w-48 rotate-[5deg] rounded-2xl border border-white/20 bg-white/10 p-4 text-white backdrop-blur-sm">
+            <div className="mb-2 flex items-center gap-2">
+              <StatIcon2 className="h-4 w-4 text-blue-300" />
+              <p className="text-xs text-white/60">{stat2.label}</p>
+            </div>
+            <p className="text-2xl font-bold text-white">{stat2.value}</p>
           </div>
-          <div
-            className="absolute bottom-[22%] left-[20%] w-36 -rotate-1 rounded-2xl border border-white/12 p-4 shadow-2xl backdrop-blur-xl"
-            style={{ background: 'rgba(255,255,255,0.07)' }}
-          >
-            <p className="text-xs text-white/70">RDV</p>
-            <p className="text-2xl font-bold text-white opacity-90">+24</p>
+          <div className="absolute bottom-[22%] left-[20%] w-40 -rotate-1 rounded-2xl border border-white/20 bg-white/10 p-4 text-white backdrop-blur-sm">
+            <div className="mb-2 flex items-center gap-2">
+              <StatIcon3 className="h-4 w-4 text-blue-300" />
+              <p className="text-xs text-white/60">{stat3.label}</p>
+            </div>
+            <p className="text-2xl font-bold text-white">{stat3.value}</p>
           </div>
         </div>
 
-        <div className="relative z-10 flex flex-1 flex-col justify-center px-10 py-12 xl:px-16">
+        <div className="relative z-10 flex flex-1 flex-col justify-center">
           <h1 className="text-3xl font-bold tracking-tight text-white xl:text-4xl">GarageFlow</h1>
           <p className="mt-2 max-w-md text-lg text-white/85">Gérez votre garage, développez votre business.</p>
-          <ul className="mt-8 space-y-3 text-sm text-white/90">
-            <li className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 shrink-0 text-violet-300" />
-              Multi-garages, un seul tableau de bord
-            </li>
-            <li className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 shrink-0 text-violet-300" />
-              Devis, factures et planning en temps réel
-            </li>
-            <li className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 shrink-0 text-violet-300" />
-              IA diagnostique intégrée
-            </li>
+          <ul className="mt-8 space-y-4">
+            {featureBullets.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 text-sm text-white/80">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/20">
+                  <Icon className="h-4 w-4 shrink-0 text-blue-400" />
+                </span>
+                {text}
+              </li>
+            ))}
           </ul>
         </div>
-        <p className="relative z-10 px-10 pb-10 text-xs text-white/50 xl:px-16">
-          Trusted by 500+ garages across France & Maghreb
+
+        <p className="relative z-10 text-xs text-white/50">
+          La solution ERP dédiée aux garages professionnels
         </p>
       </div>
 
-      {/* Right — form */}
-      <div
-        className="relative flex min-h-[100dvh] flex-col justify-center px-4 py-8 md:px-10"
-        style={{
-          background: 'var(--bg-page)',
-          backgroundImage: `
-            radial-gradient(ellipse 80% 50% at 80% 0%, rgba(37,99,235,0.08) 0%, transparent 50%),
-            radial-gradient(ellipse 60% 40% at 0% 100%, rgba(124,58,237,0.06) 0%, transparent 50%)
-          `,
-        }}
-      >
+      <div className="relative flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30 p-10">
         <div className="mx-auto w-full max-w-md">
-          <p className="mb-1 text-center text-xs text-[var(--text-secondary)] lg:hidden">
+          <p className="mb-1 text-center text-xs text-slate-500 lg:hidden">
             Gérez votre garage, développez votre business.
           </p>
+
           <div className="mb-6 flex justify-center lg:mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#7c3aed] text-sm font-bold text-white shadow-lg">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-xl font-bold text-white shadow-lg shadow-blue-500/25">
               GF
             </div>
           </div>
-          <h2 className="text-center text-[28px] font-semibold leading-tight text-[var(--text-primary)]">Bienvenue</h2>
-          <p className="mt-1 text-center text-sm text-[var(--text-secondary)]">Connectez-vous à votre espace</p>
 
-          <div
-            className="mt-8 rounded-[24px] border border-[var(--border)] p-6 shadow-[var(--shadow-clay)] backdrop-blur-[20px] md:p-10"
-            style={{
-              background: 'var(--bg-surface)',
-              backdropFilter: 'blur(20px) saturate(180%)',
-            }}
-          >
+          <h2 className="text-center text-[28px] font-semibold leading-tight text-slate-900">Bienvenue</h2>
+          <p className="mt-1 text-center text-sm text-slate-500">Connectez-vous à votre espace</p>
+
+          <div className="mt-8 w-full max-w-md rounded-2xl bg-white p-8 shadow-xl shadow-slate-200/80">
             <form className="space-y-5" onSubmit={onSubmit}>
               <div className="flex flex-wrap gap-2">
                 {roleTabs.map((r) => (
@@ -199,10 +191,10 @@ export function LoginPage(): React.ReactElement {
                     type="button"
                     onClick={() => applyRole(r.id)}
                     className={cn(
-                      'rounded-full border px-3 py-2 text-xs font-semibold transition-transform',
+                      'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
                       role === r.id
-                        ? 'scale-105 border-transparent bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white shadow-md'
-                        : 'border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]',
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-500 hover:text-slate-700',
                     )}
                   >
                     {r.label}
@@ -212,9 +204,15 @@ export function LoginPage(): React.ReactElement {
 
               <div className="space-y-2">
                 <Label htmlFor="email">{t('auth:email')}</Label>
-                <Input id="email" type="email" autoComplete="email" {...form.register('email')} placeholder={roleTabs.find((x) => x.id === role)?.demoEmail} />
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  {...form.register('email')}
+                  placeholder={roleTabs.find((x) => x.id === role)?.demoEmail}
+                />
                 {form.formState.errors.email ? (
-                  <p className="text-xs text-[var(--accent-red)]">{form.formState.errors.email.message}</p>
+                  <p className="text-xs text-red-600">{form.formState.errors.email.message}</p>
                 ) : null}
               </div>
 
@@ -230,7 +228,7 @@ export function LoginPage(): React.ReactElement {
                   />
                   <button
                     type="button"
-                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--bg-table-hover)] hover:text-[var(--text-primary)]"
+                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                     onClick={() => setShowPw(!showPw)}
                     aria-label={showPw ? 'Masquer' : 'Afficher'}
                   >
@@ -238,16 +236,16 @@ export function LoginPage(): React.ReactElement {
                   </button>
                 </div>
                 {form.formState.errors.password ? (
-                  <p className="text-xs text-[var(--accent-red)]">{form.formState.errors.password.message}</p>
+                  <p className="text-xs text-red-600">{form.formState.errors.password.message}</p>
                 ) : null}
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <input type="checkbox" className="h-4 w-4 rounded border-[var(--border-strong)]" {...form.register('remember')} />
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" className="h-4 w-4 rounded border-slate-300" {...form.register('remember')} />
                   Se souvenir de moi
                 </label>
-                <Link className="text-sm font-semibold text-[var(--accent-primary)]" to="/forgot-password">
+                <Link className="text-sm font-semibold text-blue-600" to="/forgot-password">
                   Mot de passe oublié ?
                 </Link>
               </div>
@@ -255,7 +253,7 @@ export function LoginPage(): React.ReactElement {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="h-[52px] w-full rounded-[14px] border-0 bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-base font-semibold text-white shadow-lg transition hover:brightness-110 hover:[transform:translateY(-1px)] disabled:opacity-70"
+                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-3 font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:from-blue-700 hover:to-blue-800"
               >
                 {submitting ? (
                   <span className="inline-flex items-center gap-2">
@@ -266,74 +264,17 @@ export function LoginPage(): React.ReactElement {
                   t('auth:login')
                 )}
               </Button>
-
-              <div className="relative py-2">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-[var(--border)]" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-[var(--bg-surface)] px-3 text-[var(--text-muted)]">ou continuer avec</span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" className="flex-1 border-[var(--border)]" onClick={() => quickDemo('manager')}>
-                  Demo Gérant
-                </Button>
-                <Button type="button" variant="secondary" className="flex-1 border-[var(--border)]" onClick={() => quickDemo('mechanic')}>
-                  Demo Mécanicien
-                </Button>
-                <Button type="button" variant="secondary" className="flex-1 border-[var(--border)]" onClick={() => quickDemo('client')}>
-                  Demo Client
-                </Button>
-              </div>
             </form>
           </div>
 
-          <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
+          <p className="mt-6 text-center text-sm text-slate-500">
             Pas encore de compte ?{' '}
-            <Link className="font-semibold text-[var(--accent-primary)]" to="/register">
+            <Link className="font-semibold text-blue-600" to="/register">
               Créer un garage
             </Link>
           </p>
-
-          {/* Mobile demo chip */}
-          <motion.div
-            className="fixed bottom-4 left-4 right-4 z-50 lg:hidden"
-            initial={false}
-            animate={{ height: demoOpen ? 'auto' : 48 }}
-          >
-            <button
-              type="button"
-              onClick={() => setDemoOpen(!demoOpen)}
-              className="w-full rounded-full border border-[var(--border)] bg-[var(--bg-modal)] px-4 py-3 text-left text-xs font-medium text-[var(--text-primary)] shadow-clay backdrop-blur-md"
-            >
-              Demo : appuyer pour se connecter rapidement
-            </button>
-            {demoOpen ? (
-              <div className="mt-2 flex flex-col gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-solid)] p-3 shadow-lg">
-                <Button size="sm" variant="secondary" type="button" onClick={() => quickDemo('manager')}>
-                  Gérant
-                </Button>
-                <Button size="sm" variant="secondary" type="button" onClick={() => quickDemo('mechanic')}>
-                  Mécanicien
-                </Button>
-                <Button size="sm" variant="secondary" type="button" onClick={() => quickDemo('client')}>
-                  Client
-                </Button>
-              </div>
-            ) : null}
-          </motion.div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes gf-stat-pulse {
-          0%, 100% { opacity: 0.4; transform: scaleX(0.85); }
-          50% { opacity: 1; transform: scaleX(1); }
-        }
-        .gf-stat-pulse { animation: gf-stat-pulse 2.5s ease-in-out infinite; }
-      `}</style>
     </div>
   )
 }

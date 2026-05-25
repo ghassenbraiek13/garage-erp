@@ -1,38 +1,58 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useMemo } from 'react'
-import { useForm } from 'react-hook-form'
+import { format, isPast, startOfMonth } from 'date-fns'
+import { arSA, fr } from 'date-fns/locale'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { z } from 'zod'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable, type DataColumn } from '@/components/ui/DataTable'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { QuoteCreateModal } from '@/components/quotes/QuoteCreateModal'
+import { QuotePdfButtons } from '@/components/quotes/QuotePdfButtons'
+import { InvoiceStatusBadge, QuoteStatusBadge } from '@/components/quotes/QuoteStatusBadge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { useInvoicesList, type ApiInvoice } from '@/hooks/api/useInvoices'
 import { useQuotesList, type ApiQuote } from '@/hooks/api/useQuotes'
-import { formatCurrencyEUR } from '@/lib/utils'
+import { refLabel } from '@/lib/quoteUtils'
+import { cn, formatCurrencyEUR } from '@/lib/utils'
 import { useLocaleStore } from '@/store/locale'
-import api from '@/utils/api'
 
-const lineSchema = z.object({
-  label: z.string().min(2),
-  qty: z.coerce.number().min(1),
-  unit: z.coerce.number().min(0),
-  tva: z.coerce.number().min(0),
-})
-
-const quoteFormSchema = z.object({
-  lines: z.array(lineSchema).min(1),
-  discount: z.coerce.number().min(0),
-})
+function SummaryCard({
+  label,
+  value,
+  hint,
+  danger,
+}: {
+  label: string
+  value: string
+  hint?: string
+  danger?: boolean
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-sidebar)] p-4 shadow-clay">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+      <p className={cn('mt-1 text-xl font-bold', danger ? 'text-clay-red' : 'text-ink-primary')}>{value}</p>
+      {hint ? <p className="mt-1 text-xs text-ink-secondary">{hint}</p> : null}
+    </div>
+  )
+}
 
 export function QuotesPage(): React.ReactElement {
   const { t } = useTranslation(['quotes', 'common'])
   const locale = useLocaleStore((s) => s.locale)
+  const localeDate = locale === 'ar' ? arSA : fr
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [createOpen, setCreateOpen] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setCreateOpen(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
   const {
     data: quotesData,
     isLoading: qLoading,
@@ -50,86 +70,162 @@ export function QuotesPage(): React.ReactElement {
 
   const quotes = quotesData?.items ?? []
   const invoices = invData?.items ?? []
+  const monthStart = startOfMonth(new Date())
 
-  const form = useForm<z.infer<typeof quoteFormSchema>>({
-    resolver: zodResolver(quoteFormSchema),
-    defaultValues: {
-      discount: 0,
-      lines: [{ label: 'Main d’œuvre', qty: 1, unit: 85, tva: 20 }],
-    },
-  })
+  const quoteStats = useMemo(() => {
+    const monthQuotes = quotes.filter((q) => q.createdAt && new Date(q.createdAt) >= monthStart)
+    const sent = quotes.filter((q) => q.status === 'sent').length
+    const accepted = quotes.filter((q) => q.status === 'accepted').length
+    const total = quotes.length
+    const rate = total > 0 ? Math.round((accepted / total) * 100) : 0
+    return { month: monthQuotes.length, sent, accepted, rate }
+  }, [quotes, monthStart])
 
-  const watchedLines = form.watch('lines')
-  const watchedDiscount = form.watch('discount')
-  const totals = useMemo(() => {
-    const ht = watchedLines.reduce((s, l) => s + l.qty * l.unit, 0)
-    const tvaAmt = watchedLines.reduce((s, l) => s + l.qty * l.unit * (l.tva / 100), 0)
-    const ttc = ht + tvaAmt - watchedDiscount
-    return { ht, tvaAmt, ttc }
-  }, [watchedDiscount, watchedLines])
+  const invoiceStats = useMemo(() => {
+    const monthInv = invoices.filter((i) => i.createdAt && new Date(i.createdAt) >= monthStart)
+    const paid = monthInv.filter((i) => i.status === 'paid')
+    const pending = invoices.filter((i) => i.status === 'unpaid' || i.status === 'partial')
+    const overdue = invoices.filter(
+      (i) =>
+        (i.status === 'unpaid' || i.status === 'overdue') &&
+        i.dueDate &&
+        isPast(new Date(i.dueDate)),
+    )
+    const collected = paid.reduce((s, i) => s + (i.totalTTC ?? 0), 0)
+    const waiting = pending.reduce((s, i) => s + (i.totalTTC ?? 0), 0)
+    return {
+      monthCount: monthInv.length,
+      collected,
+      waiting,
+      overdueCount: overdue.length,
+    }
+  }, [invoices, monthStart])
 
   const quoteColumns: DataColumn<ApiQuote>[] = [
-    { id: 'id', header: 'ID', cell: (q) => <span className="font-mono text-xs">{q.id.slice(-8)}</span> },
+    {
+      id: 'number',
+      header: t('quotes:colNumber'),
+      cell: (q) => (
+        <Link to={`/quotes/${q.id}`} className="font-mono text-sm font-semibold text-clay-primary hover:underline">
+          {q.number ?? q.id.slice(-8)}
+        </Link>
+      ),
+    },
+    { id: 'client', header: t('quotes:colClient'), cell: (q) => refLabel(q.clientId) },
+    { id: 'vehicle', header: t('quotes:colVehicle'), cell: (q) => refLabel(q.vehicleId) },
     {
       id: 'total',
-      header: 'Total TTC',
+      header: t('quotes:colAmount'),
       cell: (q) => formatCurrencyEUR(q.totalTTC ?? 0, locale),
     },
     {
       id: 'status',
-      header: t('quotes:pipeline'),
-      cell: (q) => (
-        <Badge variant="primary" className="capitalize">
-          {q.status}
-        </Badge>
-      ),
+      header: t('quotes:colStatus'),
+      cell: (q) => <QuoteStatusBadge status={q.status} />,
     },
     {
-      id: 'pdf',
+      id: 'valid',
+      header: t('quotes:colValidity'),
+      cell: (q) =>
+        q.validUntil ? format(new Date(q.validUntil), 'PP', { locale: localeDate }) : '—',
+    },
+    {
+      id: 'actions',
       header: <span className="text-end">{t('common:actions')}</span>,
       headerClassName: 'text-end',
       cellClassName: 'text-end',
       cell: (q) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          type="button"
-          onClick={async () => {
-            try {
-              const res = await api.get(`/quotes/${q.id}/pdf`, { responseType: 'blob' })
-              const url = URL.createObjectURL(res.data as Blob)
-              window.open(url, '_blank', 'noopener')
-            } catch {
-              /* ignore */
-            }
-          }}
-        >
-          {t('quotes:previewPdf')}
-        </Button>
+        <div className="flex flex-wrap justify-end gap-1">
+          <Button size="sm" variant="secondary" asChild>
+            <Link to={`/quotes/${q.id}`}>{t('common:view')}</Link>
+          </Button>
+          <QuotePdfButtons
+            entity="quotes"
+            id={q.id}
+            fileName={q.number ? `Devis-${q.number}` : `Devis-${q.id}`}
+            size="sm"
+          />
+          {(q.status === 'draft' || q.status === 'sent') && (
+            <Button size="sm" variant="secondary" onClick={() => navigate(`/quotes/${q.id}`)}>
+              {t('common:edit')}
+            </Button>
+          )}
+          {q.status === 'accepted' && (
+            <Button size="sm" className="bg-clay-green text-white hover:opacity-90" onClick={() => navigate(`/quotes/${q.id}`)}>
+              {t('quotes:convert')}
+            </Button>
+          )}
+        </div>
       ),
     },
   ]
 
   const invColumns: DataColumn<ApiInvoice>[] = [
-    { id: 'id', header: 'ID', cell: (x) => <span className="font-mono text-xs">{x.id.slice(-8)}</span> },
-    { id: 'ttc', header: 'Total TTC', cell: (x) => formatCurrencyEUR(x.totalTTC ?? 0, locale) },
     {
-      id: 'st',
-      header: 'Statut',
+      id: 'number',
+      header: t('quotes:colNumber'),
       cell: (x) => (
-        <Badge variant={x.status === 'paid' ? 'success' : 'warning'} className="capitalize">
-          {x.status}
-        </Badge>
+        <Link to={`/invoices/${x.id}`} className="font-mono text-sm font-semibold text-clay-primary hover:underline">
+          {x.number ?? x.id.slice(-8)}
+        </Link>
+      ),
+    },
+    { id: 'client', header: t('quotes:colClient'), cell: (x) => refLabel(x.clientId) },
+    { id: 'vehicle', header: t('quotes:colVehicle'), cell: (x) => refLabel(x.vehicleId) },
+    { id: 'ttc', header: t('quotes:colAmount'), cell: (x) => formatCurrencyEUR(x.totalTTC ?? 0, locale) },
+    { id: 'st', header: t('quotes:colStatus'), cell: (x) => <InvoiceStatusBadge status={x.status} /> },
+    {
+      id: 'due',
+      header: t('quotes:dueDate'),
+      cell: (x) => {
+        if (!x.dueDate) return '—'
+        const overdue = (x.status === 'unpaid' || x.status === 'overdue') && isPast(new Date(x.dueDate))
+        return (
+          <span className={cn(overdue && 'font-semibold text-clay-red')}>
+            {format(new Date(x.dueDate), 'PP', { locale: localeDate })}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      header: <span className="text-end">{t('common:actions')}</span>,
+      headerClassName: 'text-end',
+      cellClassName: 'text-end',
+      cell: (x) => (
+        <div className="flex flex-wrap justify-end gap-1">
+          <Button size="sm" variant="secondary" asChild>
+            <Link to={`/invoices/${x.id}`}>{t('common:view')}</Link>
+          </Button>
+          <QuotePdfButtons
+            entity="invoices"
+            id={x.id}
+            fileName={x.number ? `Facture-${x.number}` : `Facture-${x.id}`}
+            size="sm"
+          />
+          {(x.status === 'unpaid' || x.status === 'overdue') && (
+            <Button size="sm" variant="secondary" asChild>
+              <Link to={`/invoices/${x.id}`}>{t('quotes:markPaid')}</Link>
+            </Button>
+          )}
+        </div>
       ),
     },
   ]
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-fluid-h1 font-semibold">{t('quotes:title')}</h1>
-        <p className="text-sm text-ink-secondary">Devis et factures (API)</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-fluid-h1 font-semibold">{t('quotes:title')}</h1>
+          <p className="text-sm text-ink-secondary">{t('quotes:subtitle')}</p>
+        </div>
+        <Button type="button" onClick={() => setCreateOpen(true)}>
+          {t('quotes:newQuote')}
+        </Button>
       </div>
+
+      <QuoteCreateModal open={createOpen} onClose={() => setCreateOpen(false)} />
 
       <Tabs defaultValue="quotes">
         <TabsList>
@@ -138,9 +234,20 @@ export function QuotesPage(): React.ReactElement {
         </TabsList>
 
         <TabsContent value="quotes" className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard label={t('quotes:statMonthQuotes')} value={String(quoteStats.month)} />
+            <SummaryCard label={t('quotes:statPending')} value={String(quoteStats.sent)} />
+            <SummaryCard label={t('quotes:statAccepted')} value={String(quoteStats.accepted)} />
+            <SummaryCard
+              label={t('quotes:statConversion')}
+              value={`${quoteStats.rate}%`}
+              hint={t('quotes:statConversionHint')}
+            />
+          </div>
+
           <ClayCard variant="elevated">
             <CardHeader>
-              <CardTitle className="text-base">Liste des devis</CardTitle>
+              <CardTitle className="text-base">{t('quotes:quotesList')}</CardTitle>
             </CardHeader>
             <CardContent>
               <QueryBoundary
@@ -149,67 +256,33 @@ export function QuotesPage(): React.ReactElement {
                 error={qError as Error}
                 onRetry={() => void refetchQ()}
                 isEmpty={!qLoading && quotes.length === 0}
-                loading={<TableSkeleton rows={5} />}
-                empty={<p className="text-sm text-ink-muted">Aucun devis</p>}
+                loading={<TableSkeleton rows={6} />}
+                empty={<p className="text-sm text-ink-muted">{t('quotes:emptyQuotes')}</p>}
               >
                 <DataTable columns={quoteColumns} data={quotes} getRowKey={(q) => q.id} />
               </QueryBoundary>
             </CardContent>
           </ClayCard>
-
-          <ClayCard variant="elevated">
-            <CardHeader>
-              <CardTitle className="text-base">Nouveau devis (calcul TVA)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {form.watch('lines').map((_, idx) => (
-                <div key={idx} className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  <div className="md:col-span-2">
-                    <Label>{t('quotes:lines')}</Label>
-                    <Input {...form.register(`lines.${idx}.label` as const)} />
-                  </div>
-                  <div>
-                    <Label>{t('quotes:qty')}</Label>
-                    <Input type="number" {...form.register(`lines.${idx}.qty` as const)} />
-                  </div>
-                  <div>
-                    <Label>{t('quotes:unit')}</Label>
-                    <Input type="number" {...form.register(`lines.${idx}.unit` as const)} />
-                  </div>
-                  <div>
-                    <Label>{t('quotes:tva')} %</Label>
-                    <Input type="number" {...form.register(`lines.${idx}.tva` as const)} />
-                  </div>
-                </div>
-              ))}
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div>
-                  <Label>{t('quotes:discount')} (€)</Label>
-                  <Input type="number" {...form.register('discount')} />
-                </div>
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-sidebar)] p-3 text-sm">
-                  <p>
-                    HT : <span className="font-semibold">{formatCurrencyEUR(totals.ht, locale)}</span>
-                  </p>
-                  <p>
-                    TVA : <span className="font-semibold">{formatCurrencyEUR(totals.tvaAmt, locale)}</span>
-                  </p>
-                  <p>
-                    TTC : <span className="font-semibold">{formatCurrencyEUR(totals.ttc, locale)}</span>
-                  </p>
-                </div>
-              </div>
-              <Button type="button" onClick={() => form.handleSubmit(() => undefined)()}>
-                {t('common:save')}
-              </Button>
-            </CardContent>
-          </ClayCard>
         </TabsContent>
 
-        <TabsContent value="invoices">
+        <TabsContent value="invoices" className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryCard label={t('quotes:statMonthInvoices')} value={String(invoiceStats.monthCount)} />
+            <SummaryCard
+              label={t('quotes:statCollected')}
+              value={formatCurrencyEUR(invoiceStats.collected, locale)}
+            />
+            <SummaryCard label={t('quotes:statWaiting')} value={formatCurrencyEUR(invoiceStats.waiting, locale)} />
+            <SummaryCard
+              label={t('quotes:statOverdue')}
+              value={String(invoiceStats.overdueCount)}
+              danger={invoiceStats.overdueCount > 0}
+            />
+          </div>
+
           <ClayCard variant="elevated">
             <CardHeader>
-              <CardTitle className="text-base">{t('quotes:invoices')}</CardTitle>
+              <CardTitle className="text-base">{t('quotes:invoicesList')}</CardTitle>
             </CardHeader>
             <CardContent>
               <QueryBoundary
@@ -218,8 +291,8 @@ export function QuotesPage(): React.ReactElement {
                 error={iError as Error}
                 onRetry={() => void refetchI()}
                 isEmpty={!iLoading && invoices.length === 0}
-                loading={<TableSkeleton rows={5} />}
-                empty={<p className="text-sm text-ink-muted">Aucune facture</p>}
+                loading={<TableSkeleton rows={6} />}
+                empty={<p className="text-sm text-ink-muted">{t('quotes:emptyInvoices')}</p>}
               >
                 <DataTable columns={invColumns} data={invoices} getRowKey={(x) => x.id} />
               </QueryBoundary>
@@ -227,7 +300,6 @@ export function QuotesPage(): React.ReactElement {
           </ClayCard>
         </TabsContent>
       </Tabs>
-
     </div>
   )
 }

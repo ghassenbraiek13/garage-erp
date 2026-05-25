@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
 import api from '@/utils/api'
 import type { ApiListResponse } from '@/hooks/api/types'
 
@@ -100,6 +101,42 @@ export function useSuperAdminActivity() {
       return data.data
     },
   })
+}
+
+export type CreateGarageBody = {
+  name: string
+  email: string
+  phone: string
+  city: string
+  address?: string
+  subscriptionTier: 'trial' | 'basic' | 'pro' | 'enterprise'
+}
+
+export function useCreateGarage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: CreateGarageBody) => {
+      const { data } = await api.post<{ data: Record<string, unknown> }>('/superadmin/garages', {
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        subscriptionTier: body.subscriptionTier,
+        address: {
+          city: body.city,
+          ...(body.address ? { street: body.address } : {}),
+        },
+      })
+      return mapGarage(data.data)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['superadmin', 'garages'] })
+      void qc.invalidateQueries({ queryKey: ['superadmin'] })
+    },
+  })
+}
+
+export function isDuplicateGarageError(err: unknown): boolean {
+  return axios.isAxiosError(err) && err.response?.status === 409
 }
 
 export function useSuspendGarage() {

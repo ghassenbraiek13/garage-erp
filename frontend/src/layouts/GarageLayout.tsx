@@ -14,8 +14,16 @@ export function GarageLayout() {
   const collapsed = useLayoutStore((s) => s.sidebarCollapsed)
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  if (user?.role === 'superadmin') {
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (user.role === 'superadmin') {
     return <Navigate to="/super-admin/dashboard" replace />
+  }
+
+  if (user.role === 'client') {
+    return <Navigate to="/portal" replace />
   }
 
   return (

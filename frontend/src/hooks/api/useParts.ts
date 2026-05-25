@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/utils/api'
 import type { ApiListResponse } from '@/hooks/api/types'
 
@@ -32,6 +32,27 @@ export function usePartsList(params?: { category?: string; lowStock?: boolean; s
         },
       })
       return { items: data.data.map(mapPart), meta: data.meta }
+    },
+  })
+}
+
+export function useCreatePart() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: {
+      reference: string
+      name: string
+      category?: string
+      price: number
+      stock?: number
+      minStock?: number
+      supplier?: string
+    }) => {
+      const { data } = await api.post('/parts', body)
+      return mapPart(data.data as Record<string, unknown>)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['parts'] })
     },
   })
 }

@@ -3,15 +3,16 @@ import crypto from 'crypto'
 import mongoose from 'mongoose'
 import type { PaginateModel } from 'mongoose'
 import { Client, type IClient } from '@/models/Client.model'
+import { Garage } from '@/models/Garage.model'
 import { Vehicle } from '@/models/Vehicle.model'
 import { Repair } from '@/models/Repair.model'
 import { Invoice } from '@/models/Invoice.model'
 import { User } from '@/models/User.model'
-import { ok } from '@/utils/apiResponse'
+import { ok, fail } from '@/utils/apiResponse'
 import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
 import { exportClientsExcel } from '@/services/excel.service'
-import { generateClientsListPdf } from '@/services/pdf.service'
+import { generateClientsListPdf, generateMaintenanceBookletPdf } from '@/services/pdf.service'
 import { sendMail } from '@/services/email.service'
 import { getEnv } from '@/config/env'
 
@@ -33,6 +34,44 @@ function generateTempPassword(): string {
   return arr.join('')
 }
 
+type PortalProvisionResult = { userId?: string; warning?: string }
+
+async function provisionPortalAccess(
+  c: IClient & { _id: mongoose.Types.ObjectId },
+  garageId: mongoose.Types.ObjectId,
+  opts: { password?: string; sendEmail?: boolean; welcomeEmail?: boolean } = {},
+): Promise<PortalProvisionResult> {
+  if (!c.email) {
+    return { warning: 'Client créé sans email — aucun compte portail' }
+  }
+  const emailLower = c.email.toLowerCase().trim()
+  const existing = await User.findOne({ email: emailLower })
+  if (existing) {
+    return { warning: 'Un compte existe déjà pour cet email' }
+  }
+  const plain = opts.password ?? crypto.randomBytes(8).toString('hex')
+  const u = await User.create({
+    email: emailLower,
+    password: plain,
+    name: c.name,
+    role: 'client',
+    garageId,
+    clientId: c._id,
+    isActive: true,
+  })
+  if (opts.sendEmail || opts.welcomeEmail) {
+    const base = getEnv().FRONTEND_URL ?? 'http://localhost:5173'
+    const subject = opts.welcomeEmail
+      ? 'Bienvenue sur GarageFlow — Accès à votre espace personnel'
+      : 'GarageFlow — Accès portail client'
+    const text = opts.welcomeEmail
+      ? `Bonjour ${c.name},\n\nVotre espace client a été créé.\nEmail: ${emailLower}\nMot de passe temporaire: ${plain}\nConnectez-vous sur: ${base}/portal/login\nNous vous recommandons de changer votre mot de passe après connexion.\n\nL'équipe GarageFlow`
+      : `Bonjour,\n\nVotre accès au portail GarageFlow est activé.\nEmail : ${emailLower}\nMot de passe temporaire : ${plain}\n\nConnexion : ${base}/portal/login`
+    await sendMail({ to: emailLower, subject, text })
+  }
+  return { userId: u._id.toString() }
+}
+
 const ClientPaged = Client as unknown as PaginateModel<IClient>
 
 export async function list(req: Request, res: Response): Promise<void> {
@@ -51,7 +90,19 @@ export async function list(req: Request, res: Response): Promise<void> {
     limit,
     sort: { [sort]: order },
   })
-  res.json(ok(result.docs, buildMeta(result.totalDocs, page, limit)))
+  const clientIds = result.docs.map((d) => d._id)
+  const lastVisits = await Repair.aggregate<{ _id: mongoose.Types.ObjectId; lastVisitAt: Date }>([
+    { $match: { garageId, clientId: { $in: clientIds }, status: 'completed' } },
+    { $group: { _id: '$clientId', lastVisitAt: { $max: { $ifNull: ['$completedAt', '$endDate', '$createdAt'] } } } },
+  ])
+  const lastMap = new Map(lastVisits.map((r) => [r._id.toString(), r.lastVisitAt]))
+  const enriched = result.docs.map((d) => {
+    const json = d.toJSON() as Record<string, unknown>
+    const lv = lastMap.get(d._id.toString())
+    if (lv) json.lastVisitAt = lv
+    return json
+  })
+  res.json(ok(enriched, buildMeta(result.totalDocs, page, limit)))
 }
 
 export async function getOne(req: Request, res: Response): Promise<void> {
@@ -67,7 +118,21 @@ export async function getOne(req: Request, res: Response): Promise<void> {
 export async function create(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
   const c = await Client.create({ ...req.body, garageId })
-  res.status(201).json(ok(c.toJSON()))
+  const clientJson = c.toJSON() as Record<string, unknown>
+  let portal: PortalProvisionResult = {}
+  try {
+    portal = await provisionPortalAccess(c, garageId, { welcomeEmail: true, sendEmail: true })
+  } catch {
+    portal = { warning: 'Compte portail ou email de bienvenue non créé' }
+  }
+  res.status(201).json(
+    ok({
+      ...clientJson,
+      clientId: c._id.toString(),
+      userId: portal.userId,
+      portalWarning: portal.warning,
+    }),
+  )
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
@@ -151,6 +216,81 @@ export async function exportExcel(req: Request, res: Response): Promise<void> {
   res.send(buf)
 }
 
+export async function exportCarnetPDF(req: Request, res: Response): Promise<void> {
+  const garageId = assertGarage(req)
+  const clientId = req.params.id
+  const vehicleId = String(req.query.vehiculeId ?? req.query.vehicleId ?? '')
+  if (!mongoose.isValidObjectId(clientId) || !mongoose.isValidObjectId(vehicleId)) {
+    res.status(400).json(fail('clientId et vehiculeId requis'))
+    return
+  }
+  if (req.user?.role === 'client') {
+    if (!req.user.clientId || req.user.clientId !== clientId) {
+      res.status(403).json(fail('Forbidden'))
+      return
+    }
+  }
+  const client = await Client.findOne({ _id: clientId, garageId }).lean()
+  if (!client) {
+    res.status(404).json(fail('Client introuvable'))
+    return
+  }
+  const vehicle = await Vehicle.findOne({
+    _id: vehicleId,
+    garageId,
+    clientId: new mongoose.Types.ObjectId(clientId),
+  }).lean()
+  if (!vehicle) {
+    res.status(404).json(fail('Véhicule introuvable'))
+    return
+  }
+  const garage = await Garage.findById(garageId).lean()
+  const repairs = await Repair.find({
+    garageId,
+    clientId: new mongoose.Types.ObjectId(clientId),
+    vehicleId: new mongoose.Types.ObjectId(vehicleId),
+  })
+    .populate('mechanicId', 'name')
+    .populate('serviceIds', 'name')
+    .sort({ startDate: -1, createdAt: -1 })
+    .lean()
+  const rows = repairs.map((r) => {
+    const services = Array.isArray(r.serviceIds)
+      ? r.serviceIds
+          .map((s) => (s && typeof s === 'object' && 'name' in s ? String((s as { name: string }).name) : ''))
+          .filter(Boolean)
+          .join(', ')
+      : ''
+    const mech =
+      r.mechanicId && typeof r.mechanicId === 'object' && 'name' in r.mechanicId
+        ? String((r.mechanicId as { name: string }).name)
+        : '—'
+    const date = r.startDate ?? r.completedAt ?? r.createdAt
+    return {
+      date: date ? new Date(date).toLocaleDateString('fr-FR') : '—',
+      service: services || r.notes || '—',
+      mileage: vehicle.mileage != null ? String(vehicle.mileage) : '—',
+      mechanic: mech,
+      status: r.status,
+    }
+  })
+  const buf = await generateMaintenanceBookletPdf({
+    garageName: garage?.name ?? 'GarageFlow',
+    client: { name: client.name, email: client.email, phone: client.phone },
+    vehicle: {
+      plate: vehicle.plate,
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+    },
+    rows,
+  })
+  const plateSafe = vehicle.plate.replace(/[^a-zA-Z0-9-]/g, '_')
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="carnet-${plateSafe}.pdf"`)
+  res.send(buf)
+}
+
 export async function exportPdf(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
   const clients = await Client.find({ garageId }).lean()
@@ -187,23 +327,13 @@ export async function createPortalAccess(req: Request, res: Response): Promise<v
   }
   const { password, sendEmail } = req.body as { password?: string; sendEmail?: boolean }
   const plain = password ?? generateTempPassword()
-  const u = await User.create({
-    email: emailLower,
-    password: plain,
-    name: c.name,
-    role: 'client',
-    garageId,
-    clientId: c._id,
-  })
-  if (sendEmail) {
-    const base = getEnv().FRONTEND_URL ?? 'http://localhost:5173'
-    await sendMail({
-      to: emailLower,
-      subject: 'GarageFlow — Accès portail client',
-      text: `Bonjour,\n\nVotre accès au portail GarageFlow est activé.\nEmail : ${emailLower}\nMot de passe temporaire : ${plain}\n\nConnexion : ${base}/portal/login`,
-    })
+  const portal = await provisionPortalAccess(c, garageId, { password: plain, sendEmail: Boolean(sendEmail) })
+  if (portal.warning && !portal.userId) {
+    res.status(409).json({ success: false, message: portal.warning })
+    return
   }
-  res.status(201).json(ok({ user: u.toJSON(), tempPassword: plain }))
+  const u = await User.findOne({ email: emailLower })
+  res.status(201).json(ok({ user: u?.toJSON(), tempPassword: plain, userId: portal.userId }))
 }
 
 export async function removePortalAccess(req: Request, res: Response): Promise<void> {

@@ -24,7 +24,7 @@ r.post(
 r.put(
   '/:id',
   verifyToken,
-  requireRole('manager', 'cashier', 'superadmin'),
+  requireRole('manager', 'mechanic', 'cashier', 'superadmin'),
   validateBody(UpdateAppointmentSchema),
   ctrl.update,
 )
@@ -35,6 +35,6 @@ r.patch(
   validateBody(AppointmentStatusSchema),
   ctrl.patchStatus,
 )
-r.delete('/:id', verifyToken, requireRole('manager', 'superadmin'), ctrl.remove)
+r.delete('/:id', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'superadmin'), ctrl.remove)
 
 export default r

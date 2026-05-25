@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import type { PaginateModel } from 'mongoose'
 import { Quote, type IQuote, type IQuoteLine } from '@/models/Quote.model'
 import { Invoice } from '@/models/Invoice.model'
-import { ok } from '@/utils/apiResponse'
+import { ok, fail } from '@/utils/apiResponse'
 import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
 import { generateQuotePDF } from '@/services/pdf.service'
@@ -111,7 +111,11 @@ export async function convert(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
   const q = await Quote.findOne({ _id: req.params.id, garageId })
   if (!q) {
-    res.status(404).json({ success: false, message: 'Not found' })
+    res.status(404).json(fail('Devis introuvable'))
+    return
+  }
+  if (q.status === 'invoiced') {
+    res.status(409).json(fail('Ce devis a déjà été transformé en facture'))
     return
   }
   const inv = await Invoice.create({

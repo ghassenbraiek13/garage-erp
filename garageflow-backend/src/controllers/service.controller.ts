@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import type { PaginateModel } from 'mongoose'
 import { Service, type IService } from '@/models/Service.model'
-import { ok } from '@/utils/apiResponse'
+import { ok, fail } from '@/utils/apiResponse'
 import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
 
@@ -24,6 +24,10 @@ export async function list(req: Request, res: Response): Promise<void> {
   const { page, limit, sort, order, search } = parsePagination(req.query as Record<string, unknown>)
   const filter: Record<string, unknown> = { garageId }
   if (search) filter.name = new RegExp(search, 'i')
+  if (typeof req.query.category === 'string') filter.category = req.query.category
+  if (typeof req.query.diagnosticKind === 'string') filter.diagnosticKind = req.query.diagnosticKind
+  if (req.query.isActive === 'true') filter.isActive = true
+  else if (req.query.isActive === 'false') filter.isActive = false
   const result = await ServicePaged.paginate(filter, { page, limit, sort: { [sort]: order } })
   res.json(ok(result.docs, buildMeta(result.totalDocs, page, limit)))
 }
@@ -40,6 +44,12 @@ export async function getOne(req: Request, res: Response): Promise<void> {
 
 export async function create(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
+  const name = String((req.body as { name?: string }).name ?? '').trim()
+  const existing = await Service.findOne({ garageId, name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') })
+  if (existing) {
+    res.status(409).json(fail('Un service avec ce nom existe déjà'))
+    return
+  }
   const s = await Service.create({ ...req.body, garageId })
   res.status(201).json(ok(s.toJSON()))
 }

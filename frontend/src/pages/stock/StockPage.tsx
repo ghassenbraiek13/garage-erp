@@ -12,9 +12,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import axios from 'axios'
 import type { ApiPart } from '@/hooks/api/useParts'
-import { usePartsList, usePartsLowStock } from '@/hooks/api/useParts'
+import { useCreatePart, usePartsList, usePartsLowStock } from '@/hooks/api/useParts'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/auth'
 
 const schema = z.object({
   reference: z.string().min(2),
@@ -27,8 +29,11 @@ const schema = z.object({
 
 export function StockPage(): React.ReactElement {
   const { t } = useTranslation(['stock', 'common'])
+  const user = useAuthStore((s) => s.user)
+  const isManager = user?.role === 'manager'
   const { data, isLoading, isError, error, refetch } = usePartsList()
   const { data: lowStockApi } = usePartsLowStock()
+  const createPart = useCreatePart()
   const [open, setOpen] = useState(false)
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) })
 
@@ -70,9 +75,11 @@ export function StockPage(): React.ReactElement {
           <h1 className="text-fluid-h1 font-semibold">{t('title')}</h1>
           <p className="text-sm text-ink-secondary">Données pièces détachées (API)</p>
         </div>
-        <Button type="button" onClick={() => setOpen(true)}>
-          Ajouter une pièce
-        </Button>
+        {isManager ? (
+          <Button type="button" onClick={() => setOpen(true)}>
+            {t('stock:addPart')}
+          </Button>
+        ) : null}
       </div>
 
       {low.length ? (
@@ -102,6 +109,7 @@ export function StockPage(): React.ReactElement {
         </CardContent>
       </ClayCard>
 
+      {isManager ? (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
@@ -109,9 +117,27 @@ export function StockPage(): React.ReactElement {
           </DialogHeader>
           <form
             className="space-y-3"
-            onSubmit={form.handleSubmit(() => {
-              toast.message('Création pièce — brancher POST /parts')
-              setOpen(false)
+            onSubmit={form.handleSubmit(async (values) => {
+              try {
+                await createPart.mutateAsync({
+                  reference: values.reference,
+                  name: values.name,
+                  category: values.category || 'autre',
+                  price: values.price,
+                  stock: values.quantity,
+                  supplier: values.supplier,
+                  minStock: 5,
+                })
+                toast.success(t('partCreated'))
+                setOpen(false)
+                form.reset()
+              } catch (err) {
+                const msg =
+                  axios.isAxiosError(err) && typeof err.response?.data?.message === 'string'
+                    ? err.response.data.message
+                    : t('partCreateError')
+                toast.error(msg)
+              }
             })}
           >
             <div>
@@ -140,12 +166,13 @@ export function StockPage(): React.ReactElement {
               <Label>Fournisseur</Label>
               <Input {...form.register('supplier')} />
             </div>
-            <Button className="w-full" type="submit">
+            <Button className="w-full" type="submit" disabled={createPart.isPending}>
               {t('common:save')}
             </Button>
           </form>
         </DialogContent>
       </Dialog>
+      ) : null}
     </div>
   )
 }

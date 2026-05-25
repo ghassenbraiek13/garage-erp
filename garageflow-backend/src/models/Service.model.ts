@@ -2,6 +2,8 @@ import mongoose, { Schema } from 'mongoose'
 import type mongoosePaginate from 'mongoose-paginate-v2'
 import paginate from 'mongoose-paginate-v2'
 
+export type DiagnosticKind = 'general' | 'purchase_consultation' | 'purchase_general'
+
 export interface IService {
   garageId: mongoose.Types.ObjectId
   name: string
@@ -16,6 +18,8 @@ export interface IService {
     | 'climatisation'
     | 'autre'
   description?: string
+  /** Sous-type pour les prestations de la catégorie diagnostic */
+  diagnosticKind?: DiagnosticKind | null
   price: number
   duration: number
   isActive: boolean
@@ -44,6 +48,11 @@ const serviceSchema = new Schema<IService>(
       required: true,
     },
     description: String,
+    diagnosticKind: {
+      type: String,
+      enum: ['general', 'purchase_consultation', 'purchase_general'],
+      default: null,
+    },
     price: { type: Number, required: true, min: 0 },
     duration: { type: Number, required: true },
     isActive: { type: Boolean, default: true },

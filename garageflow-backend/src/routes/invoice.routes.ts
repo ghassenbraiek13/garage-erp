@@ -11,6 +11,7 @@ r.get('/export/excel', verifyToken, requireRole('manager', 'superadmin'), ctrl.e
 r.get('/', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.list)
 r.get('/:id/pdf', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.pdf)
 r.post('/:id/send-email', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.sendEmail)
+r.post('/:id/send', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.sendEmail)
 r.get('/:id', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.getOne)
 r.post('/', verifyToken, requireRole('manager', 'cashier', 'superadmin'), validateBody(CreateInvoiceSchema), ctrl.create)
 r.put(

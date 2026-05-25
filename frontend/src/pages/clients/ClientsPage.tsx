@@ -1,4 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { formatDistanceToNow } from 'date-fns'
+import { arSA, fr } from 'date-fns/locale'
 import { FileSpreadsheet, FileText, Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -13,20 +15,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
-import { useClientVehicles } from '@/hooks/api/useVehicles'
+import { ClientDetailModal } from '@/components/clients/ClientDetailModal'
+import { ClientEditModal } from '@/components/clients/ClientEditModal'
 import type { ApiClient } from '@/hooks/api/useClients'
 import { useClientsList, useCreateClient, useDeleteClient } from '@/hooks/api/useClients'
-import { formatCurrencyEUR, formatNumber } from '@/lib/utils'
+import { formatCurrencyEUR } from '@/lib/utils'
 import { useLocaleStore } from '@/store/locale'
 import api from '@/utils/api'
 
 const schema = z.object({
   name: z.string().min(2),
-  phone: z.string().regex(/^(\+33|0)[1-9](\d{8})$/),
+  phone: z.string().min(6, 'Numéro trop court').max(20),
   email: z.string().email().optional().or(z.literal('')),
-  street: z.string().min(2),
-  city: z.string().min(2),
-  postalCode: z.string().min(4),
+  street: z.string().min(1),
+  city: z.string().min(1),
+  postalCode: z.string().min(3),
 })
 
 export function ClientsPage(): React.ReactElement {
@@ -37,11 +40,12 @@ export function ClientsPage(): React.ReactElement {
   const [openCreate, setOpenCreate] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<ApiClient | null>(null)
   const [detail, setDetail] = useState<ApiClient | null>(null)
+  const [editClient, setEditClient] = useState<ApiClient | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useClientsList(q.trim() || undefined, page, 50)
   const rows = data?.items ?? []
   const meta = data?.meta
-  const { data: detailVehicles } = useClientVehicles(detail?.id)
+  const dateLocale = locale === 'ar' ? arSA : fr
   const createMut = useCreateClient()
   const deleteMut = useDeleteClient()
 
@@ -61,7 +65,10 @@ export function ClientsPage(): React.ReactElement {
     {
       id: 'lastVisit',
       header: t('clients:lastVisit'),
-      cell: (c) => (c.updatedAt ? new Date(c.updatedAt).toLocaleDateString('fr-FR') : '—'),
+      cell: (c) =>
+        c.lastVisitAt
+          ? formatDistanceToNow(new Date(c.lastVisitAt), { addSuffix: true, locale: dateLocale })
+          : t('clients:noVisit'),
     },
     {
       id: 'spent',
@@ -78,7 +85,7 @@ export function ClientsPage(): React.ReactElement {
           <Button size="sm" variant="secondary" type="button" onClick={() => setDetail(c)}>
             {t('common:view')}
           </Button>
-          <Button size="sm" variant="secondary" type="button" onClick={() => toast.message('Édition — bientôt')}>
+          <Button size="sm" variant="secondary" type="button" onClick={() => setEditClient(c)}>
             {t('common:edit')}
           </Button>
           <Button size="sm" variant="danger" type="button" onClick={() => setConfirmDelete(c)}>
@@ -290,61 +297,17 @@ export function ClientsPage(): React.ReactElement {
         </DialogContent>
       </Dialog>
 
-      {detail ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[60] bg-[var(--overlay)] backdrop-blur-[4px]"
-            aria-label="Fermer"
-            onClick={() => setDetail(null)}
-          />
-          <aside className="fixed inset-y-0 end-0 z-[70] w-full max-w-lg animate-in slide-in-from-right border-s border-[var(--border)] bg-[var(--bg-modal)] shadow-clay backdrop-blur-clay duration-300">
-            <div className="flex h-full flex-col gap-4 overflow-y-auto p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{t('clients:detailTitle')}</p>
-                  <h2 className="text-xl font-semibold text-[var(--text-primary)]">{detail.name}</h2>
-                </div>
-                <Button variant="secondary" type="button" onClick={() => setDetail(null)}>
-                  {t('common:close')}
-                </Button>
-              </div>
-              <div className="space-y-2 text-sm text-[var(--text-secondary)]">
-                <p>
-                  <span className="text-ink-secondary">{t('clients:phone')}:</span> {detail.phone}
-                </p>
-                <p>
-                  <span className="text-ink-secondary">Email:</span> {detail.email ?? '—'}
-                </p>
-                <p>
-                  <span className="text-ink-secondary">Adresse:</span>{' '}
-                  {detail.address
-                    ? [detail.address.street, detail.address.postalCode, detail.address.city].filter(Boolean).join(', ')
-                    : '—'}
-                </p>
-                <p>
-                  <span className="text-ink-secondary">Points fidélité:</span>{' '}
-                  {formatNumber(detail.loyaltyPoints ?? 0, locale)}
-                </p>
-              </div>
-              <div>
-                <p className="mb-2 font-semibold text-[var(--text-primary)]">{t('clients:history')}</p>
-                <div className="space-y-2">
-                  {(detailVehicles ?? []).map((v) => (
-                    <div
-                      key={v.id}
-                      className="rounded-2xl border border-[var(--border)] bg-[var(--bg-sidebar)] p-3 text-sm text-[var(--text-primary)]"
-                    >
-                      {v.make} {v.model} ({v.plate})
-                    </div>
-                  ))}
-                  {detailVehicles?.length === 0 ? <p className="text-sm text-ink-muted">Aucun véhicule</p> : null}
-                </div>
-              </div>
-            </div>
-          </aside>
-        </>
-      ) : null}
+      <ClientDetailModal
+        client={detail}
+        open={Boolean(detail)}
+        onClose={() => setDetail(null)}
+        onClientUpdated={(updated) => setDetail(updated)}
+      />
+      <ClientEditModal
+        client={editClient}
+        open={Boolean(editClient)}
+        onClose={() => setEditClient(null)}
+      />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import clientRoutes from './client.routes'
 import vehicleRoutes from './vehicle.routes'
 import repairRoutes from './repair.routes'
 import serviceRoutes from './service.routes'
+import diagnosticReportRoutes from './diagnosticReport.routes'
 import quoteRoutes from './quote.routes'
 import invoiceRoutes from './invoice.routes'
 import partRoutes from './part.routes'
@@ -25,6 +26,7 @@ router.use('/clients', clientRoutes)
 router.use('/vehicles', vehicleRoutes)
 router.use('/repairs', repairRoutes)
 router.use('/services', serviceRoutes)
+router.use('/diagnostic-reports', diagnosticReportRoutes)
 router.use('/quotes', quoteRoutes)
 router.use('/invoices', invoiceRoutes)
 router.use('/parts', partRoutes)
