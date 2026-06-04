@@ -13,6 +13,9 @@ export interface ICoupon {
   clientId?: mongoose.Types.ObjectId | null
   expiresAt?: Date
   isActive: boolean
+  isUsed: boolean
+  usedAt?: Date
+  usedOnQuoteId?: mongoose.Types.ObjectId | null
   qrCode?: string
   createdAt: Date
   updatedAt: Date
@@ -34,6 +37,9 @@ const couponSchema = new Schema<ICoupon>(
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', default: null },
     expiresAt: Date,
     isActive: { type: Boolean, default: true },
+    isUsed: { type: Boolean, default: false },
+    usedAt: Date,
+    usedOnQuoteId: { type: Schema.Types.ObjectId, ref: 'Quote', default: null },
     qrCode: String,
   },
   { timestamps: true },

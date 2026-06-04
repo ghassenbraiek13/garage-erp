@@ -15,7 +15,8 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { useInvoicesList, type ApiInvoice } from '@/hooks/api/useInvoices'
 import { useQuotesList, type ApiQuote } from '@/hooks/api/useQuotes'
 import { refLabel } from '@/lib/quoteUtils'
-import { cn, formatCurrencyEUR } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 
 function SummaryCard({
@@ -116,7 +117,7 @@ export function QuotesPage(): React.ReactElement {
     {
       id: 'total',
       header: t('quotes:colAmount'),
-      cell: (q) => formatCurrencyEUR(q.totalTTC ?? 0, locale),
+      cell: (q) => formatTND(q.totalTTC ?? 0),
     },
     {
       id: 'status',
@@ -172,7 +173,7 @@ export function QuotesPage(): React.ReactElement {
     },
     { id: 'client', header: t('quotes:colClient'), cell: (x) => refLabel(x.clientId) },
     { id: 'vehicle', header: t('quotes:colVehicle'), cell: (x) => refLabel(x.vehicleId) },
-    { id: 'ttc', header: t('quotes:colAmount'), cell: (x) => formatCurrencyEUR(x.totalTTC ?? 0, locale) },
+    { id: 'ttc', header: t('quotes:colAmount'), cell: (x) => formatTND(x.totalTTC ?? 0) },
     { id: 'st', header: t('quotes:colStatus'), cell: (x) => <InvoiceStatusBadge status={x.status} /> },
     {
       id: 'due',
@@ -270,9 +271,9 @@ export function QuotesPage(): React.ReactElement {
             <SummaryCard label={t('quotes:statMonthInvoices')} value={String(invoiceStats.monthCount)} />
             <SummaryCard
               label={t('quotes:statCollected')}
-              value={formatCurrencyEUR(invoiceStats.collected, locale)}
+              value={formatTND(invoiceStats.collected)}
             />
-            <SummaryCard label={t('quotes:statWaiting')} value={formatCurrencyEUR(invoiceStats.waiting, locale)} />
+            <SummaryCard label={t('quotes:statWaiting')} value={formatTND(invoiceStats.waiting)} />
             <SummaryCard
               label={t('quotes:statOverdue')}
               value={String(invoiceStats.overdueCount)}

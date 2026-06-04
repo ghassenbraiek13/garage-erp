@@ -343,7 +343,7 @@ export function VehicleVinField<T extends FieldValues>({
               </Button>
               <Button
                 type="button"
-                variant="default"
+                variant="primary"
                 className="flex-1"
                 disabled={!selectedMatchId || isConfirming}
                 onClick={() => {

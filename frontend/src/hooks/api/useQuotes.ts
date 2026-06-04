@@ -155,6 +155,73 @@ export function useDeleteQuote() {
   })
 }
 
+export type PortalQuote = {
+  id: string
+  number: string
+  status: 'draft' | 'sent' | 'accepted' | 'invoiced' | 'expired' | 'rejected'
+  totalTTC: number
+  subtotalHT: number
+  totalTVA: number
+  totalDiscount: number
+  validUntil?: string
+  createdAt: string
+  notes?: string
+  lines: ApiQuoteLine[]
+  vehicleInfo?: { plate: string; make: string; model: string }
+}
+
+export function usePortalQuotes() {
+  return useQuery({
+    queryKey: ['portal', 'quotes'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: PortalQuote[] }>('/quotes/portal/my')
+      return data.data
+    },
+  })
+}
+
+export function useAcceptQuote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch<{ data: PortalQuote }>(`/quotes/portal/${id}/accept`)
+      return data.data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['portal', 'quotes'] })
+    },
+  })
+}
+
+export function useRefuseQuote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch<{ data: PortalQuote }>(`/quotes/portal/${id}/refuse`)
+      return data.data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['portal', 'quotes'] })
+    },
+  })
+}
+
+export function useApplyCouponToQuote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, couponCode }: { id: string; couponCode: string }) => {
+      const { data } = await api.post<{
+        data: { nouveauTotalTTC: number; remiseAppliquee: number; couponCode: string }
+      }>(`/quotes/portal/${id}/apply-coupon`, { couponCode })
+      return data.data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['portal', 'quotes'] })
+      void qc.invalidateQueries({ queryKey: ['loyalty', 'my'] })
+    },
+  })
+}
+
 export function useSendQuoteEmail() {
   const qc = useQueryClient()
   return useMutation({

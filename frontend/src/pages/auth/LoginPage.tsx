@@ -54,7 +54,7 @@ const featureBullets = [
 
 const statCards = [
   { label: 'Clients actifs', value: '247', icon: Users },
-  { label: 'CA du mois', value: '12 400 DT', icon: TrendingUp },
+  { label: 'CA du mois', value: '12 400.000 TND', icon: TrendingUp },
   { label: "RDV aujourd'hui", value: '+8', icon: Calendar },
 ] as const
 

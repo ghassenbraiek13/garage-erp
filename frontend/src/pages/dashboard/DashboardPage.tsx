@@ -23,7 +23,8 @@ import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { useDashboardStats } from '@/hooks/api/useDashboard'
 import { useChartTheme } from '@/hooks/useChartTheme'
-import { cn, formatCurrencyEUR } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 import { useAuthStore } from '@/store/auth'
 import { MechanicDashboard } from '@/pages/dashboard/MechanicDashboard'
@@ -183,7 +184,7 @@ function ManagerDashboardView(): React.ReactElement {
             />
             <MetricCard
               label={t('revenueMonth')}
-              value={revenue ? formatCurrencyEUR(revenue.thisMonth, locale) : '—'}
+              value={revenue ? formatTND(revenue.thisMonth) : '—'}
               icon={locale === 'ar' ? Euro : TrendingUp}
               accent="green"
               trend={
@@ -209,7 +210,7 @@ function ManagerDashboardView(): React.ReactElement {
                 </div>
                 <div className="text-end">
                   <p className="text-2xl font-semibold text-ink-primary">
-                    {revenue ? formatCurrencyEUR(revenue.thisMonth, locale) : '—'}
+                    {revenue ? formatTND(revenue.thisMonth) : '—'}
                   </p>
                   <p className="text-xs font-semibold text-clay-green">{revenue ? `${revenue.growth >= 0 ? '+' : ''}${revenue.growth}%` : ''}</p>
                 </div>
@@ -243,7 +244,7 @@ function ManagerDashboardView(): React.ReactElement {
                           active && payload?.length ? (
                             <div className="rounded-[var(--radius-card)] px-3 py-2 text-xs shadow-clay backdrop-blur-clay">
                               <div className="font-semibold text-ink-primary">{label}</div>
-                              <div className="text-ink-secondary">{formatCurrencyEUR(Number(payload[0]?.value), locale)}</div>
+                              <div className="text-ink-secondary">{formatTND(Number(payload[0]?.value))}</div>
                             </div>
                           ) : null
                         }

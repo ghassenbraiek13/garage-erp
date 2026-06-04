@@ -294,6 +294,21 @@ const PortalCouponsPage = lazy(async () => {
 
 })
 
+const PortalLoyaltyPage = lazy(async () => {
+  const m = await import('@/pages/client-portal/PortalLoyaltyPage')
+  return { default: m.PortalLoyaltyPage }
+})
+
+const PortalQuotesPage = lazy(async () => {
+  const m = await import('@/pages/client-portal/PortalQuotesPage')
+  return { default: m.PortalQuotesPage }
+})
+
+const PortalInvoicesPage = lazy(async () => {
+  const m = await import('@/pages/client-portal/PortalInvoicesPage')
+  return { default: m.PortalInvoicesPage }
+})
+
 const PortalBookPage = lazy(async () => {
 
   const m = await import('@/pages/client-portal/PortalBookPage')
@@ -612,6 +627,14 @@ export const router = createBrowserRouter([
 
       {
 
+        path: 'coupons',
+
+        element: <Navigate to="/loyalty" replace />,
+
+      },
+
+      {
+
         path: 'storefront',
 
         element: (
@@ -632,7 +655,7 @@ export const router = createBrowserRouter([
 
         element: (
 
-          <Guarded roles={['manager', 'mechanic', 'cashier']}>
+          <Guarded roles={['manager', 'cashier']}>
 
             <Suspensed><ChatbotPage /></Suspensed>
 
@@ -718,12 +741,18 @@ export const router = createBrowserRouter([
 
       { index: true, element: <Suspensed><PortalHomePage /></Suspensed> },
 
+      { path: 'loyalty', element: <Suspensed><PortalLoyaltyPage /></Suspensed> },
+
       { path: 'vehicles', element: <Suspensed><PortalVehiclesPage /></Suspensed> },
       { path: 'vehicles/:id', element: <Suspensed><PortalVehicleDetailPage /></Suspensed> },
 
+      { path: 'quotes', element: <Suspensed><PortalQuotesPage /></Suspensed> },
+
+      { path: 'invoices', element: <Suspensed><PortalInvoicesPage /></Suspensed> },
+
       { path: 'booklet', element: <Suspensed><PortalBookletPage /></Suspensed> },
 
-      { path: 'coupons', element: <Suspensed><PortalCouponsPage /></Suspensed> },
+      { path: 'coupons', element: <Navigate to="/portal/loyalty" replace /> },
 
       { path: 'book', element: <Suspensed><PortalBookPage /></Suspensed> },
 

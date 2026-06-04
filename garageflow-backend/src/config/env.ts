@@ -12,11 +12,14 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRES: z.string().default('15m'),
   JWT_REFRESH_EXPIRES: z.string().default('7d'),
-  SMTP_HOST: z.string().min(1),
-  SMTP_PORT: z.coerce.number(),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_DEV_REDIRECT: z.string().email().optional(),
+  SMTP_HOST: z.string().optional().default(''),
+  SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().min(1),
+  SMTP_SECURE: z.string().optional(),
+  SMTP_FROM: z.string().optional().default('GarageFlow <onboarding@resend.dev>'),
   UPLOAD_MAX_SIZE_MB: z.coerce.number().default(5),
   UPLOADS_DIR: z.string().default('./uploads'),
   AUTOREF_API_KEY: z.string().optional().default(''),
@@ -31,7 +34,15 @@ const envSchema = z.object({
   N8N_INVOICE_WEBHOOK_URL: z
     .preprocess((v) => (v === '' || v === undefined ? undefined : v), z.string().url())
     .optional(),
-  BACKEND_URL: z.preprocess((v) => (v === '' || v === undefined ? undefined : v), z.string().url()).optional(),
+  N8N_CHATBOT_WEBHOOK_URL: z
+    .preprocess((v) => (v === '' || v === undefined ? undefined : v), z.string().url())
+    .optional(),
+  N8N_WEBHOOK_URL: z
+    .preprocess((v) => (v === '' || v === undefined ? undefined : v), z.string().url())
+    .optional(),
+  BACKEND_URL: z
+    .preprocess((v) => (v === '' || v === undefined ? undefined : v), z.string().url())
+    .default('http://localhost:5000'),
 })
 
 export type Env = z.infer<typeof envSchema>

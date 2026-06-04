@@ -9,7 +9,8 @@ import { useClientsList } from '@/hooks/api/useClients'
 import { useServicesList } from '@/hooks/api/useServices'
 import { useMechanics } from '@/hooks/api/useUsers'
 import { useClientVehicles } from '@/hooks/api/useVehicles'
-import { cn, formatCurrencyEUR } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 import {
   type RepairFormValues,
@@ -115,7 +116,7 @@ export function RepairFormFields({ form }: RepairFormFieldsProps): React.ReactEl
                   {s.name}
                 </span>
                 <span className="text-xs text-ink-muted">
-                  {formatCurrencyEUR(s.price ?? 0, locale)}
+                  {formatTND(s.price ?? 0)}
                 </span>
               </label>
             ))}

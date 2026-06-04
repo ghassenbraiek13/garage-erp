@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ClayCard, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { formatTNDCompact } from '@/utils/currency'
 
 export function MetricCard({
   label,
@@ -47,7 +48,7 @@ export function MetricCard({
       const p = Math.min(1, (now - start) / duration)
       const eased = 1 - (1 - p) ** 3
       const current = Math.round(numeric * eased)
-      setDisplay(value.includes('€') ? `${current.toLocaleString('fr-FR')} €` : String(current))
+      setDisplay(value.includes('TND') ? formatTNDCompact(current) : String(current))
       if (p < 1) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

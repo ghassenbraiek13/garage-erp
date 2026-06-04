@@ -8,6 +8,7 @@ import { uploadPartPhoto } from '@/middleware/upload.middleware'
 
 const r = Router()
 
+r.get('/stock-check', verifyToken, requireRole('manager', 'superadmin'), ctrl.stockCheck)
 r.get('/low-stock', verifyToken, requireRole('manager', 'superadmin'), ctrl.lowStock)
 r.get('/export/excel', verifyToken, requireRole('manager', 'superadmin'), ctrl.exportExcel)
 r.get('/', verifyToken, requireRole('manager', 'mechanic', 'cashier', 'client', 'superadmin'), ctrl.list)

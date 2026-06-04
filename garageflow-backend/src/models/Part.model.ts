@@ -23,7 +23,7 @@ export interface IPart {
   stock: number
   minStock: number
   supplier?: string
-  compatibleVehicles: string[]
+  compatibleWith: string[]
   photos: string[]
   isPublic: boolean
   barcode?: string
@@ -57,7 +57,7 @@ const partSchema = new Schema<IPart>(
     stock: { type: Number, default: 0, min: 0 },
     minStock: { type: Number, default: 5 },
     supplier: String,
-    compatibleVehicles: [{ type: String }],
+    compatibleWith: [{ type: String }],
     photos: [{ type: String }],
     isPublic: { type: Boolean, default: false },
     barcode: String,

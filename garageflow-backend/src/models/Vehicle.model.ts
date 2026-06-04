@@ -13,6 +13,12 @@ export interface IVehicle {
   engine?: string
   fuelType?: 'essence' | 'diesel' | 'hybride' | 'electrique' | 'autre'
   color?: string
+  transmission?: string
+  bodyType?: string
+  doors?: number
+  power?: number
+  displacement?: number
+  co2?: number
   mileage?: number
   lastServiceDate?: Date
   nextServiceDate?: Date
@@ -36,6 +42,12 @@ const vehicleSchema = new Schema<IVehicle>(
       enum: ['essence', 'diesel', 'hybride', 'electrique', 'autre'],
     },
     color: String,
+    transmission: { type: String },
+    bodyType: { type: String },
+    doors: { type: Number },
+    power: { type: Number },
+    displacement: { type: Number },
+    co2: { type: Number },
     mileage: Number,
     lastServiceDate: Date,
     nextServiceDate: Date,

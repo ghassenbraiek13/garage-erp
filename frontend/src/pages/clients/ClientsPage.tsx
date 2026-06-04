@@ -19,7 +19,7 @@ import { ClientDetailModal } from '@/components/clients/ClientDetailModal'
 import { ClientEditModal } from '@/components/clients/ClientEditModal'
 import type { ApiClient } from '@/hooks/api/useClients'
 import { useClientsList, useCreateClient, useDeleteClient } from '@/hooks/api/useClients'
-import { formatCurrencyEUR } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 import api from '@/utils/api'
 
@@ -73,7 +73,7 @@ export function ClientsPage(): React.ReactElement {
     {
       id: 'spent',
       header: t('clients:spent'),
-      cell: (c) => formatCurrencyEUR(c.totalSpent ?? 0, locale),
+      cell: (c) => formatTND(c.totalSpent ?? 0),
     },
     {
       id: 'actions',
@@ -188,7 +188,7 @@ export function ClientsPage(): React.ReactElement {
                     <p className="font-semibold">{c.name}</p>
                     <p className="text-xs text-ink-secondary">{c.phone}</p>
                     <p className="mt-2 text-sm">
-                      {t('clients:spent')}: {formatCurrencyEUR(c.totalSpent ?? 0, locale)}
+                      {t('clients:spent')}: {formatTND(c.totalSpent ?? 0)}
                     </p>
                   </button>
                 ))}

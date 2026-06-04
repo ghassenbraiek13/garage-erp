@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ApiService, ServiceCategory } from '@/hooks/api/useServices'
 import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 
 const CATEGORY_ORDER: ServiceCategory[] = [
   'diagnostic',
@@ -71,7 +72,7 @@ export function ServiceSelect({
           {items.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
-              {s.price !== undefined ? ` — ${s.price.toFixed(2)} €` : ''}
+              {s.price !== undefined ? ` — ${formatTND(s.price)}` : ''}
               {s.duration ? ` (${s.duration} min)` : ''}
             </option>
           ))}

@@ -17,6 +17,8 @@ import userRoutes from './user.routes'
 import garageRoutes from './garage.routes'
 import superadminRoutes from './superadmin.routes'
 import storefrontRoutes from './storefront.routes'
+import loyaltyRoutes from './loyalty.routes'
+import chatbotRoutes from './chatbot.routes'
 
 const router = Router()
 
@@ -33,6 +35,8 @@ router.use('/parts', partRoutes)
 router.use('/tasks', taskRoutes)
 router.use('/appointments', appointmentRoutes)
 router.use('/coupons', couponRoutes)
+router.use('/loyalty', loyaltyRoutes)
+router.use('/chatbot', chatbotRoutes)
 router.use('/notifications', notificationRoutes)
 router.use('/users', userRoutes)
 router.use('/garage', garageRoutes)

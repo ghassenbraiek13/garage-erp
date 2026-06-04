@@ -28,7 +28,7 @@ export async function seedParts(): Promise<void> {
       stock: low ? 2 : 20 + i,
       minStock: 5,
       supplier: 'EuroPieces',
-      compatibleVehicles: ['Peugeot 308', 'Renault Clio'],
+      compatibleWith: ['Peugeot 308', 'Renault Clio'],
       isPublic: pub,
     })
   }

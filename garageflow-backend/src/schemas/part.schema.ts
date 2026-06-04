@@ -25,7 +25,7 @@ export const CreatePartSchema = z.object({
   stock: z.number().min(0).optional(),
   minStock: z.number().min(0).optional(),
   supplier: z.string().optional(),
-  compatibleVehicles: z.array(z.string()).optional(),
+  compatibleWith: z.array(z.string()).optional(),
   isPublic: z.boolean().optional(),
   barcode: z.string().optional(),
 })

@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -16,6 +17,7 @@ import axios from 'axios'
 import type { ApiPart } from '@/hooks/api/useParts'
 import { useCreatePart, usePartsList, usePartsLowStock } from '@/hooks/api/useParts'
 import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useAuthStore } from '@/store/auth'
 
 const schema = z.object({
@@ -31,14 +33,18 @@ export function StockPage(): React.ReactElement {
   const { t } = useTranslation(['stock', 'common'])
   const user = useAuthStore((s) => s.user)
   const isManager = user?.role === 'manager'
-  const { data, isLoading, isError, error, refetch } = usePartsList()
+  const [search, setSearch] = useState('')
+  const { data, isLoading, isError, error, refetch } = usePartsList({ search: search || undefined })
   const { data: lowStockApi } = usePartsLowStock()
   const createPart = useCreatePart()
   const [open, setOpen] = useState(false)
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) })
 
   const parts = data?.items ?? []
-  const low = lowStockApi ?? parts.filter((p) => p.stock < p.minStock)
+  const low = useMemo(
+    () => lowStockApi ?? parts.filter((p) => p.stock <= p.minStock),
+    [lowStockApi, parts],
+  )
 
   const barColor = (p: ApiPart) => {
     if (p.stock < 10) return 'bg-clay-red'
@@ -56,8 +62,14 @@ export function StockPage(): React.ReactElement {
       cell: (p) => (
         <div>
           <div className="mb-1 flex justify-between text-xs">
-            <span>{p.stock}</span>
-            <span className="text-ink-muted">min {p.minStock}</span>
+            <span className={cn(p.stock <= p.minStock && 'font-semibold text-clay-red')}>{p.stock}</span>
+            {p.stock <= p.minStock ? (
+              <Badge variant="outline" className="border-clay-red/40 text-clay-red text-[10px]">
+                Bas
+              </Badge>
+            ) : (
+              <span className="text-ink-muted">min {p.minStock}</span>
+            )}
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--bg-table-header)]">
             <div className={cn('h-full rounded-full transition-all', barColor(p))} style={{ width: `${Math.min(100, (p.stock / Math.max(p.minStock * 2, 1)) * 100)}%` }} />
@@ -65,7 +77,7 @@ export function StockPage(): React.ReactElement {
         </div>
       ),
     },
-    { id: 'price', header: 'Prix', cell: (p) => `${p.price} €` },
+    { id: 'price', header: 'Prix', cell: (p) => formatTND(p.price) },
   ]
 
   return (
@@ -95,6 +107,13 @@ export function StockPage(): React.ReactElement {
 
       <ClayCard variant="elevated">
         <CardContent className="p-4">
+          <div className="mb-4">
+            <Input
+              placeholder={`${t('reference')} / nom…`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <QueryBoundary
             isLoading={isLoading}
             isError={isError}
@@ -155,7 +174,7 @@ export function StockPage(): React.ReactElement {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>{t('price')}</Label>
-                <Input type="number" {...form.register('price')} />
+                <Input type="number" step="0.001" placeholder="0.000" {...form.register('price')} />
               </div>
               <div>
                 <Label>{t('stock')}</Label>

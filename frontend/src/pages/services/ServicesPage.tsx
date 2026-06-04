@@ -20,6 +20,7 @@ import {
   type ServiceCategory,
 } from '@/hooks/api/useServices'
 import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 
 function formatDuration(minutes: number, t: (k: string) => string): string {
   if (minutes < 60) return t('services:durationMin').replace('{{n}}', String(minutes))
@@ -77,7 +78,7 @@ export function ServicesPage(): React.ReactElement {
     {
       id: 'price',
       header: t('services:price'),
-      cell: (s) => `${(s.price ?? 0).toFixed(2)} DT`,
+      cell: (s) => formatTND(s.price ?? 0),
     },
     {
       id: 'duration',

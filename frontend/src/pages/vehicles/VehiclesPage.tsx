@@ -4,6 +4,9 @@ import { Eye, History, Pencil, Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AddVehicleModal } from '@/components/portal/AddVehicleModal'
+import { VehicleDetailModal } from '@/components/vehicles/VehicleDetailModal'
+import { VehicleEditModal } from '@/components/vehicles/VehicleEditModal'
+import { VehicleHistoryModal } from '@/components/vehicles/VehicleHistoryModal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClayCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,7 +24,9 @@ export function VehiclesPage(): React.ReactElement {
   const dateLocale = locale === 'ar' ? arSA : fr
   const [search, setSearch] = useState('')
   const [addOpen, setAddOpen] = useState(false)
-  const [selected, setSelected] = useState<ApiVehicle | null>(null)
+  const [viewVehicle, setViewVehicle] = useState<ApiVehicle | null>(null)
+  const [editVehicle, setEditVehicle] = useState<ApiVehicle | null>(null)
+  const [historyVehicle, setHistoryVehicle] = useState<ApiVehicle | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useVehiclesList(search.trim() || undefined)
   const { data: clientsData } = useClientsList(undefined, 1, 200)
@@ -76,15 +81,15 @@ export function VehiclesPage(): React.ReactElement {
       cellClassName: 'text-end',
       cell: (v) => (
         <div className="flex flex-wrap justify-end gap-2">
-          <Button size="sm" variant="secondary" type="button" onClick={() => setSelected(v)}>
+          <Button size="sm" variant="secondary" type="button" onClick={() => setViewVehicle(v)}>
             <Eye className="h-3.5 w-3.5" />
             {t('common:view')}
           </Button>
-          <Button size="sm" variant="secondary" type="button" onClick={() => setSelected(v)}>
+          <Button size="sm" variant="secondary" type="button" onClick={() => setEditVehicle(v)}>
             <Pencil className="h-3.5 w-3.5" />
             {t('common:edit')}
           </Button>
-          <Button size="sm" variant="ghost" type="button" onClick={() => setSelected(v)}>
+          <Button size="sm" variant="ghost" type="button" onClick={() => setHistoryVehicle(v)}>
             <History className="h-3.5 w-3.5" />
             {t('vehicles:history')}
           </Button>
@@ -92,8 +97,6 @@ export function VehiclesPage(): React.ReactElement {
       ),
     },
   ]
-
-  const v = selected
 
   return (
     <div className="space-y-4">
@@ -136,32 +139,40 @@ export function VehiclesPage(): React.ReactElement {
         </CardContent>
       </ClayCard>
 
-      {v ? (
-        <ClayCard variant="elevated">
-          <CardHeader>
-            <CardTitle className="text-base">{t('vehicles:detail')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              {v.make} {v.model} — <span className="font-mono">{v.plate}</span>
-            </p>
-            <p>
-              VIN: <span className="font-mono">{v.vin ?? '—'}</span>
-            </p>
-            <p>
-              {t('vehicles:mileage')}: {(v.mileage ?? 0).toLocaleString(locale === 'ar' ? 'ar-TN' : 'fr-FR')} km
-            </p>
-            <p>
-              {t('vehicles:associatedClient')}: {clientNameById.get(v.clientId) ?? '—'}
-            </p>
-            <Button variant="secondary" type="button" onClick={() => setSelected(null)}>
-              {t('common:close')}
-            </Button>
-          </CardContent>
-        </ClayCard>
-      ) : null}
-
       <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} showClientSelect onCreated={() => void refetch()} />
+
+      <VehicleDetailModal
+        vehicle={viewVehicle}
+        clientName={clientNameById.get(viewVehicle?.clientId ?? '') ?? '—'}
+        open={Boolean(viewVehicle)}
+        onOpenChange={(o) => {
+          if (!o) setViewVehicle(null)
+        }}
+        onEdit={() => {
+          setEditVehicle(viewVehicle)
+          setViewVehicle(null)
+        }}
+      />
+
+      <VehicleEditModal
+        vehicle={editVehicle}
+        open={Boolean(editVehicle)}
+        onOpenChange={(o) => {
+          if (!o) setEditVehicle(null)
+        }}
+        onSaved={() => {
+          setEditVehicle(null)
+          void refetch()
+        }}
+      />
+
+      <VehicleHistoryModal
+        vehicle={historyVehicle}
+        open={Boolean(historyVehicle)}
+        onOpenChange={(o) => {
+          if (!o) setHistoryVehicle(null)
+        }}
+      />
     </div>
   )
 }

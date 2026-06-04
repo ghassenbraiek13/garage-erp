@@ -8,6 +8,7 @@ import { CreateInvoiceSchema, PayInvoiceSchema, UpdateInvoiceSchema } from '@/sc
 const r = Router()
 
 r.get('/export/excel', verifyToken, requireRole('manager', 'superadmin'), ctrl.exportExcel)
+r.get('/portal/my', verifyToken, requireRole('client'), ctrl.listForClient)
 r.get('/', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.list)
 r.get('/:id/pdf', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.pdf)
 r.post('/:id/send-email', verifyToken, requireRole('manager', 'cashier', 'superadmin'), ctrl.sendEmail)

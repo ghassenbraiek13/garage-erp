@@ -137,6 +137,14 @@ invoiceSchema.post('save', async function postSave(doc) {
     { _id: doc.clientId },
     {
       $inc: { loyaltyPoints: euros, totalSpent: doc.totalTTC },
+      $push: {
+        historiquePoints: {
+          date: new Date(),
+          pointsGagnes: euros,
+          motif: `Facture ${doc.number ?? doc._id}`,
+          factureId: doc._id,
+        },
+      },
     },
   )
 })

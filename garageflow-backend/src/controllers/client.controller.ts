@@ -13,7 +13,7 @@ import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
 import { exportClientsExcel } from '@/services/excel.service'
 import { generateClientsListPdf, generateMaintenanceBookletPdf } from '@/services/pdf.service'
-import { sendMail } from '@/services/email.service'
+import { sendEmail, sendWelcomeEmail } from '@/services/email.service'
 import { getEnv } from '@/config/env'
 
 function generateTempPassword(): string {
@@ -60,14 +60,25 @@ async function provisionPortalAccess(
     isActive: true,
   })
   if (opts.sendEmail || opts.welcomeEmail) {
-    const base = getEnv().FRONTEND_URL ?? 'http://localhost:5173'
-    const subject = opts.welcomeEmail
-      ? 'Bienvenue sur GarageFlow — Accès à votre espace personnel'
-      : 'GarageFlow — Accès portail client'
-    const text = opts.welcomeEmail
-      ? `Bonjour ${c.name},\n\nVotre espace client a été créé.\nEmail: ${emailLower}\nMot de passe temporaire: ${plain}\nConnectez-vous sur: ${base}/portal/login\nNous vous recommandons de changer votre mot de passe après connexion.\n\nL'équipe GarageFlow`
-      : `Bonjour,\n\nVotre accès au portail GarageFlow est activé.\nEmail : ${emailLower}\nMot de passe temporaire : ${plain}\n\nConnexion : ${base}/portal/login`
-    await sendMail({ to: emailLower, subject, text })
+    const env = getEnv()
+    if (opts.welcomeEmail) {
+      try {
+        await sendWelcomeEmail(
+          emailLower,
+          c.name ?? 'Client',
+          plain,
+          `${env.BACKEND_URL}/portal`,
+        )
+      } catch (emailErr) {
+        console.error('[welcome email error]', emailErr)
+      }
+    } else {
+      await sendEmail({
+        to: emailLower,
+        subject: 'GarageFlow — Accès portail client',
+        html: `<p>Bonjour,</p><p>Votre accès au portail GarageFlow est activé.</p><p><strong>Email :</strong> ${emailLower}<br/><strong>Mot de passe temporaire :</strong> ${plain}</p><p>Connexion : ${env.BACKEND_URL}/portal/login</p>`,
+      })
+    }
   }
   return { userId: u._id.toString() }
 }

@@ -32,7 +32,7 @@ import {
 } from '@/hooks/api/useQuotes'
 import { useInvoicesList } from '@/hooks/api/useInvoices'
 import { refIdStr, refLabel, stripRepairMarker } from '@/lib/quoteUtils'
-import { formatCurrencyEUR } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 import api from '@/utils/api'
 
@@ -268,7 +268,7 @@ export function QuoteDetailPage(): React.ReactElement {
               <CardHeader>
                 <CardTitle className="text-base">{t('quotes:lines')}</CardTitle>
                 <p className="text-lg font-bold text-clay-primary">
-                  {formatCurrencyEUR(quote.totalTTC ?? 0, locale)}
+                  {formatTND(quote.totalTTC ?? 0)}
                 </p>
               </CardHeader>
               <CardContent>

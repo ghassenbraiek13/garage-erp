@@ -14,6 +14,12 @@ export type ApiVehicle = {
   mileage?: number
   fuelType?: string
   color?: string
+  transmission?: string
+  bodyType?: string
+  doors?: number
+  power?: number
+  displacement?: number
+  co2?: number
   lastServiceDate?: string
 }
 
@@ -22,6 +28,12 @@ function mapVehicle(raw: Record<string, unknown>): ApiVehicle {
     ...(raw as unknown as ApiVehicle),
     id: String(raw.id ?? raw._id ?? ''),
     clientId: String(raw.clientId ?? ''),
+    transmission: raw.transmission as string | undefined,
+    bodyType: raw.bodyType as string | undefined,
+    doors: raw.doors as number | undefined,
+    power: raw.power as number | undefined,
+    displacement: raw.displacement as number | undefined,
+    co2: raw.co2 as number | undefined,
   }
 }
 
@@ -138,6 +150,12 @@ export type CreateVehicleBody = {
   fuelType?: 'essence' | 'diesel' | 'hybride' | 'electrique' | 'autre'
   mileage?: number
   color?: string
+  transmission?: string
+  bodyType?: string
+  doors?: number
+  power?: number
+  displacement?: number
+  co2?: number
 }
 
 export function useVehicle(id: string | undefined) {
@@ -157,6 +175,32 @@ export function useCreateVehicle() {
     mutationFn: async (body: CreateVehicleBody) => {
       const { data } = await api.post<{ data: Record<string, unknown> }>('/vehicles', body)
       return mapVehicle(data.data as Record<string, unknown>)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['vehicles'] })
+    },
+  })
+}
+
+export function useUpdateVehicle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      body,
+    }: {
+      id: string
+      body: Partial<CreateVehicleBody> & {
+        transmission?: string
+        bodyType?: string
+        doors?: number
+        power?: number
+        displacement?: number
+        co2?: number
+      }
+    }) => {
+      const { data } = await api.put<{ data: Record<string, unknown> }>(`/vehicles/${id}`, body)
+      return mapVehicle(data.data)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vehicles'] })

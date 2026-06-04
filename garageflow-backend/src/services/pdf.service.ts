@@ -104,11 +104,11 @@ export async function generateQuotePDF(quote: PopulatedQuote): Promise<Buffer> {
   doc.fontSize(10)
   for (const line of quote.lines) {
     doc.text(
-      `${line.label} | Qté ${line.quantity} | PU ${line.unitPrice} € | TVA ${line.tva}% | TTC ${line.totalTTC} €`,
+      `${line.label} | Qté ${line.quantity} | PU ${line.unitPrice.toFixed(3)} TND | TVA ${line.tva}% | TTC ${line.totalTTC.toFixed(3)} TND`,
     )
   }
   doc.moveDown()
-  doc.fontSize(12).text(`TOTAL TTC: ${quote.totalTTC} €`, { underline: true })
+  doc.fontSize(12).text(`TOTAL TTC: ${quote.totalTTC.toFixed(3)} TND`, { underline: true })
   if (quote.validUntil) {
     doc.moveDown()
     doc.fontSize(9).text(`Devis valable jusqu'au ${new Date(quote.validUntil).toLocaleDateString('fr-FR')}`)
@@ -170,11 +170,11 @@ export async function generateInvoicePDF(invoice: PopulatedInvoice): Promise<Buf
     doc.fillColor('#000')
     doc.text(line.label, colX[0], y, { width: 155 })
     doc.text(String(line.quantity), colX[1], y, { width: 36 })
-    doc.text(line.unitPrice.toFixed(2), colX[2], y, { width: 44 })
+    doc.text(line.unitPrice.toFixed(3), colX[2], y, { width: 44 })
     doc.text(`${line.discount ?? 0}%`, colX[3], y, { width: 44 })
     doc.text(`${line.tva ?? 20}%`, colX[4], y, { width: 44 })
-    doc.text(line.totalHT.toFixed(2), colX[5], y, { width: 52 })
-    doc.text(line.totalTTC.toFixed(2), colX[6], y, { width: 52 })
+    doc.text(line.totalHT.toFixed(3), colX[5], y, { width: 52 })
+    doc.text(line.totalTTC.toFixed(3), colX[6], y, { width: 52 })
     y += rowH
   })
 
@@ -183,17 +183,17 @@ export async function generateInvoicePDF(invoice: PopulatedInvoice): Promise<Buf
   y += 10
   doc.fontSize(10)
   doc.text('Sous-total HT', 320, y)
-  doc.text(`${invoice.subtotalHT.toFixed(2)} €`, 480, y, { align: 'right', width: 75 })
+  doc.text(`${invoice.subtotalHT.toFixed(3)} TND`, 480, y, { align: 'right', width: 75 })
   y += 14
   doc.text('Total remise', 320, y)
-  doc.text(`${invoice.totalDiscount.toFixed(2)} €`, 480, y, { align: 'right', width: 75 })
+  doc.text(`${invoice.totalDiscount.toFixed(3)} TND`, 480, y, { align: 'right', width: 75 })
   y += 14
   doc.text('Total TVA', 320, y)
-  doc.text(`${invoice.totalTVA.toFixed(2)} €`, 480, y, { align: 'right', width: 75 })
+  doc.text(`${invoice.totalTVA.toFixed(3)} TND`, 480, y, { align: 'right', width: 75 })
   y += 16
   doc.fontSize(14).fillColor('#1e3a5f')
   doc.text('Total TTC', 320, y)
-  doc.text(`${invoice.totalTTC.toFixed(2)} €`, 480, y, { align: 'right', width: 75 })
+  doc.text(`${invoice.totalTTC.toFixed(3)} TND`, 480, y, { align: 'right', width: 75 })
 
   y += 40
   doc.fontSize(8).fillColor('#666')

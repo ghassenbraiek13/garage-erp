@@ -18,7 +18,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CreateClientDialog } from '@/components/clients/CreateClientDialog'
-import { VehicleVinField, mapFuelToEnum, vinAutofillFieldClass } from '@/components/vehicles/VehicleVinField'
+import { VehicleVinField, mapFuelToEnum } from '@/components/vehicles/VehicleVinField'
 import { useClientsList } from '@/hooks/api/useClients'
 import { useCreateVehicle, type VinDecodeResult } from '@/hooks/api/useVehicles'
 import { usePortalClientId } from '@/hooks/usePortalClient'
@@ -40,6 +40,8 @@ const schema = z.object({
   color: z.string().optional(),
   doors: z.coerce.number().int().min(0).optional(),
   power: z.coerce.number().min(0).optional(),
+  displacement: z.coerce.number().min(0).optional(),
+  co2: z.coerce.number().min(0).optional(),
   mileage: z.coerce.number().int().min(0),
 })
 
@@ -69,6 +71,8 @@ function applyVinDecode(form: ReturnType<typeof useForm<FormValues>>, data: VinD
   if (data.color) form.setValue('color', data.color)
   if (data.doors) form.setValue('doors', Number(data.doors))
   if (data.power) form.setValue('power', Number(data.power))
+  if (data.displacement) form.setValue('displacement', Number(data.displacement))
+  if (data.co2) form.setValue('co2', Number(data.co2))
 }
 
 export function AddVehicleModal({
@@ -98,8 +102,6 @@ export function AddVehicleModal({
       clientId: resolvedClientId,
     },
   })
-
-  const fieldsLocked = decodeSuccess && !manualEdit
 
   useEffect(() => {
     if (open && resolvedClientId) {
@@ -136,6 +138,12 @@ export function AddVehicleModal({
         fuelType: values.fuelType,
         mileage: values.mileage,
         color: values.color || undefined,
+        transmission: values.transmission || undefined,
+        bodyType: values.bodyType || undefined,
+        doors: values.doors ?? undefined,
+        power: values.power ?? undefined,
+        displacement: values.displacement ?? undefined,
+        co2: values.co2 ?? undefined,
       })
       toast.success(t('clientPortal:vehicleAdded'))
       onOpenChange(false)
@@ -148,7 +156,9 @@ export function AddVehicleModal({
     }
   })
 
-  const autofillCls = vinAutofillFieldClass(decodeSuccess)
+  const autofillInputCls = cn(
+    decodeSuccess ? 'border-clay-primary/30 bg-[var(--bg-input)]' : '',
+  )
 
   return (
     <>
@@ -212,25 +222,23 @@ export function AddVehicleModal({
               <motion.div className="space-y-1">
                 <Label htmlFor="make" className="flex items-center gap-1">
                   {t('clientPortal:vehicleMake')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="make"
                   {...form.register('make')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
               <motion.div className="space-y-1">
                 <Label htmlFor="model" className="flex items-center gap-1">
                   {t('clientPortal:vehicleModel')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="model"
                   {...form.register('model')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
             </div>
@@ -239,26 +247,24 @@ export function AddVehicleModal({
               <motion.div className="space-y-1">
                 <Label htmlFor="year" className="flex items-center gap-1">
                   {t('clientPortal:vehicleYear')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="year"
                   type="number"
                   {...form.register('year')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
               <motion.div className="space-y-1">
                 <Label htmlFor="engine" className="flex items-center gap-1">
                   {t('vehicles:engine')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="engine"
                   {...form.register('engine')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
             </div>
@@ -267,12 +273,11 @@ export function AddVehicleModal({
               <motion.div className="space-y-1">
                 <Label htmlFor="fuelType" className="flex items-center gap-1">
                   {t('clientPortal:vehicleFuel')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <select
                   id="fuelType"
-                  className={cn(selectClass, autofillCls)}
-                  disabled={fieldsLocked}
+                  className={cn(selectClass, autofillInputCls)}
                   {...form.register('fuelType')}
                 >
                   <option value="essence">{t('clientPortal:fuelEssence')}</option>
@@ -285,13 +290,12 @@ export function AddVehicleModal({
               <motion.div className="space-y-1">
                 <Label htmlFor="color" className="flex items-center gap-1">
                   {t('clientPortal:vehicleColor')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="color"
                   {...form.register('color')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
             </div>
@@ -300,25 +304,23 @@ export function AddVehicleModal({
               <motion.div className="space-y-1">
                 <Label htmlFor="transmission" className="flex items-center gap-1">
                   {t('vehicles:transmission')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="transmission"
                   {...form.register('transmission')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
               <motion.div className="space-y-1">
                 <Label htmlFor="bodyType" className="flex items-center gap-1">
                   {t('vehicles:bodyType')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="bodyType"
                   {...form.register('bodyType')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
             </div>
@@ -327,21 +329,20 @@ export function AddVehicleModal({
               <motion.div className="space-y-1">
                 <Label htmlFor="doors" className="flex items-center gap-1">
                   {t('vehicles:doors')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="doors"
                   type="number"
                   min={0}
                   {...form.register('doors')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
                 />
               </motion.div>
               <motion.div className="space-y-1">
                 <Label htmlFor="power" className="flex items-center gap-1">
                   {t('vehicles:power')}
-                  {fieldsLocked ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
                 </Label>
                 <Input
                   id="power"
@@ -349,8 +350,40 @@ export function AddVehicleModal({
                   min={0}
                   step="0.1"
                   {...form.register('power')}
-                  readOnly={fieldsLocked}
-                  className={autofillCls}
+                  className={autofillInputCls}
+                />
+              </motion.div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <motion.div className="space-y-1">
+                <Label htmlFor="displacement" className="flex items-center gap-1">
+                  {t('vehicles:displacement')}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                </Label>
+                <Input
+                  id="displacement"
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  placeholder="cm³"
+                  {...form.register('displacement')}
+                  className={autofillInputCls}
+                />
+              </motion.div>
+              <motion.div className="space-y-1">
+                <Label htmlFor="co2" className="flex items-center gap-1">
+                  {t('vehicles:co2')}
+                  {decodeSuccess ? <Lock className="h-3 w-3 text-ink-muted" aria-hidden /> : null}
+                </Label>
+                <Input
+                  id="co2"
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  placeholder="g/km"
+                  {...form.register('co2')}
+                  className={autofillInputCls}
                 />
               </motion.div>
             </div>

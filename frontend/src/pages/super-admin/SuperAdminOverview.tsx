@@ -20,6 +20,7 @@ import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { useSuperAdminActivity, useSuperAdminStats } from '@/hooks/api/useSuperAdmin'
 import { useChartTheme } from '@/hooks/useChartTheme'
+import { formatTND } from '@/utils/currency'
 
 const TIER_COLORS = ['#64748b', '#2563eb', '#7c3aed', '#d97706']
 
@@ -91,7 +92,7 @@ export function SuperAdminOverview(): React.ReactElement {
           <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--bg-surface-solid)] p-4">
             <p className="text-xs font-medium text-[var(--text-muted)]">CA mois (factures payées)</p>
             <p className="text-2xl font-semibold text-[var(--text-primary)]">
-              {stats?.monthlyRevenue != null ? `${stats.monthlyRevenue} €` : '—'}
+              {stats?.monthlyRevenue != null ? formatTND(stats.monthlyRevenue) : '—'}
             </p>
           </div>
           <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--bg-surface-solid)] p-4">

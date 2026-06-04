@@ -15,6 +15,12 @@ export interface IClient {
   loyaltyPoints: number
   loyaltyTier: 'bronze' | 'silver' | 'gold'
   totalSpent: number
+  historiquePoints: {
+    date: Date
+    pointsGagnes: number
+    motif: string
+    factureId?: mongoose.Types.ObjectId
+  }[]
   vehicleIds: mongoose.Types.ObjectId[]
   notes?: string
   isActive: boolean
@@ -40,6 +46,14 @@ const clientSchema = new Schema<IClient>(
       default: 'bronze',
     },
     totalSpent: { type: Number, default: 0 },
+    historiquePoints: [
+      {
+        date: { type: Date, default: Date.now },
+        pointsGagnes: { type: Number, required: true },
+        motif: { type: String, required: true },
+        factureId: { type: Schema.Types.ObjectId, ref: 'Invoice' },
+      },
+    ],
     vehicleIds: [{ type: Schema.Types.ObjectId, ref: 'Vehicle' }],
     notes: String,
     isActive: { type: Boolean, default: true },

@@ -17,7 +17,8 @@ import { usePartsList } from '@/hooks/api/useParts'
 import { useRepairsList } from '@/hooks/api/useRepairs'
 import { useServicesList } from '@/hooks/api/useServices'
 import { computeQuoteTotals, refIdStr, refLabel, repairShortId, stripRepairMarker } from '@/lib/quoteUtils'
-import { cn, formatCurrencyEUR } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 
 const lineSchema = z.object({
@@ -282,7 +283,7 @@ export function QuoteEditModal({ quote, open, onClose }: QuoteEditModalProps) {
                 </div>
                 <div className="md:col-span-2">
                   <Label className="text-xs">{t('quotes:unit')}</Label>
-                  <Input type="number" min={0} step="0.01" {...form.register(`lines.${idx}.unitPrice`)} />
+                  <Input type="number" min={0} step="0.001" placeholder="0.000" {...form.register(`lines.${idx}.unitPrice`)} />
                 </div>
                 <div className="md:col-span-1">
                   <Label className="text-xs">%</Label>
@@ -295,7 +296,7 @@ export function QuoteEditModal({ quote, open, onClose }: QuoteEditModalProps) {
                 <div className="flex items-end justify-between gap-2 md:col-span-12">
                   <p className="text-sm font-medium text-ink-primary">
                     {t('quotes:lineTotal')}:{' '}
-                    {formatCurrencyEUR(totals.lines[idx]?.totalTTC ?? 0, locale)}
+                    {formatTND(totals.lines[idx]?.totalTTC ?? 0)}
                   </p>
                   <Button type="button" variant="ghost" size="sm" onClick={() => remove(idx)} disabled={fields.length <= 1}>
                     <X className="h-4 w-4" />
@@ -308,19 +309,19 @@ export function QuoteEditModal({ quote, open, onClose }: QuoteEditModalProps) {
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-sidebar)] p-3 text-sm">
             <p className="flex justify-between">
               <span>{t('quotes:subtotalHT')}</span>
-              <span>{formatCurrencyEUR(totals.subtotalHT, locale)}</span>
+              <span>{formatTND(totals.subtotalHT)}</span>
             </p>
             <p className="flex justify-between">
               <span>{t('quotes:totalTVA')}</span>
-              <span>{formatCurrencyEUR(totals.totalTVA, locale)}</span>
+              <span>{formatTND(totals.totalTVA)}</span>
             </p>
             <p className="flex justify-between">
               <span>{t('quotes:totalDiscount')}</span>
-              <span>{formatCurrencyEUR(totals.totalDiscount, locale)}</span>
+              <span>{formatTND(totals.totalDiscount)}</span>
             </p>
             <p className="flex justify-between text-base font-bold">
               <span>{t('quotes:totalTTC')}</span>
-              <span className="text-clay-primary">{formatCurrencyEUR(totals.totalTTC, locale)}</span>
+              <span className="text-clay-primary">{formatTND(totals.totalTTC)}</span>
             </p>
           </div>
 

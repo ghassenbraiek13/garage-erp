@@ -57,6 +57,45 @@ export function useCreatePart() {
   })
 }
 
+export function useUpdatePart() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      body,
+    }: {
+      id: string
+      body: Partial<{
+        reference: string
+        name: string
+        category: string
+        price: number
+        stock: number
+        minStock: number
+        supplier: string
+      }>
+    }) => {
+      const { data } = await api.put(`/parts/${id}`, body)
+      return mapPart(data.data as Record<string, unknown>)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['parts'] })
+    },
+  })
+}
+
+export function useDeletePart() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/parts/${id}`)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['parts'] })
+    },
+  })
+}
+
 export function usePartsLowStock() {
   return useQuery({
     queryKey: ['parts', 'lowStock'],

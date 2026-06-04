@@ -18,7 +18,7 @@ import {
   verifyOtp,
   verifyRefreshToken,
 } from '@/services/auth.service'
-import { sendOtpEmail } from '@/services/email.service'
+import { sendPasswordResetEmail } from '@/services/email.service'
 import type { JwtPayload } from '@/types/express'
 
 const COOKIE = 'refreshToken'
@@ -167,7 +167,11 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
       { _id: user._id },
       { passwordResetOtpHash: hash, passwordResetOtpExpires: expires },
     )
-    await sendOtpEmail(user.email, otp)
+    try {
+      await sendPasswordResetEmail(user.email, otp)
+    } catch (emailErr) {
+      console.error('[password reset email error]', emailErr)
+    }
   }
   res.json(ok({ sent: true }))
 }

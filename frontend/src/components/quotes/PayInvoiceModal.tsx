@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { ApiInvoice } from '@/hooks/api/useInvoices'
 import { usePayInvoice } from '@/hooks/api/useInvoices'
-import { formatCurrencyEUR } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 
 const schema = z.object({
@@ -63,7 +63,7 @@ export function PayInvoiceModal({ invoice, open, onClose }: PayInvoiceModalProps
     if (!invoice) return
     try {
       await payMut.mutateAsync({ id: invoice.id, paymentMethod: values.paymentMethod })
-      toast.success(t('quotes:paymentRecorded', { amount: formatCurrencyEUR(values.amount, locale) }))
+      toast.success(t('quotes:paymentRecorded', { amount: formatTND(values.amount) }))
       onClose()
     } catch (err) {
       const msg =
@@ -92,7 +92,7 @@ export function PayInvoiceModal({ invoice, open, onClose }: PayInvoiceModalProps
           </div>
           <div>
             <Label>{t('quotes:amountReceived')}</Label>
-            <Input type="number" step="0.01" {...form.register('amount')} />
+            <Input type="number" step="0.001" placeholder="0.000" {...form.register('amount')} />
           </div>
           <div>
             <Label>{t('quotes:paymentDate')}</Label>

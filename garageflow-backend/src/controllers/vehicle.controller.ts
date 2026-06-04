@@ -65,7 +65,17 @@ export async function create(req: Request, res: Response): Promise<void> {
     res.status(400).json({ success: false, message: 'Invalid client' })
     return
   }
-  const v = await Vehicle.create({ ...body, garageId, clientId })
+  const v = await Vehicle.create({
+    ...body,
+    garageId,
+    clientId,
+    transmission: body.transmission,
+    bodyType: body.bodyType,
+    doors: body.doors,
+    power: body.power,
+    displacement: body.displacement,
+    co2: body.co2,
+  })
   await Client.updateOne({ _id: clientId }, { $addToSet: { vehicleIds: v._id } })
   res.status(201).json(ok(v.toJSON()))
 }

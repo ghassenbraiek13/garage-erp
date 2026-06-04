@@ -138,6 +138,20 @@ export function useCreateClientPortal() {
   })
 }
 
+export function useAddClientPoints() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, points }: { id: string; points: number }) => {
+      const { data } = await api.post(`/clients/${id}/add-points`, { points })
+      return mapClient(data.data as Record<string, unknown>)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['clients'] })
+      void qc.invalidateQueries({ queryKey: ['loyalty'] })
+    },
+  })
+}
+
 export function useRemoveClientPortal() {
   const qc = useQueryClient()
   return useMutation({

@@ -11,6 +11,12 @@ export const CreateVehicleSchema = z.object({
   mileage: z.number().int().min(0).optional(),
   engine: z.string().optional(),
   color: z.string().optional(),
+  transmission: z.string().optional(),
+  bodyType: z.string().optional(),
+  doors: z.coerce.number().int().min(0).optional(),
+  power: z.coerce.number().min(0).optional(),
+  displacement: z.coerce.number().min(0).optional(),
+  co2: z.coerce.number().min(0).optional(),
 })
 
 export const UpdateVehicleSchema = CreateVehicleSchema.partial().extend({

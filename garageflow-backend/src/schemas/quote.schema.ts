@@ -26,3 +26,7 @@ export const UpdateQuoteSchema = CreateQuoteSchema.partial()
 export const QuoteStatusSchema = z.object({
   status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'invoiced', 'expired']),
 })
+
+export const ApplyCouponToQuoteSchema = z.object({
+  couponCode: z.string().min(2),
+})

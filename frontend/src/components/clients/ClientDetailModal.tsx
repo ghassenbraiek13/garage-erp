@@ -12,7 +12,8 @@ import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import type { ApiClient } from '@/hooks/api/useClients'
 import { useClientRepairs } from '@/hooks/api/useClients'
 import { useClientVehicles, useVehicleRepairs } from '@/hooks/api/useVehicles'
-import { cn, formatCurrencyEUR, formatNumber } from '@/lib/utils'
+import { cn, formatNumber } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 
 function tierBadgeClass(tier?: string): string {
@@ -261,7 +262,7 @@ export function ClientDetailModal({ client, open, onClose, onClientUpdated }: Cl
                   </span>
                   <span className="ms-auto text-ink-secondary">{t('clients:spent')}:</span>
                   <span className="font-semibold text-ink-primary">
-                    {formatCurrencyEUR(client.totalSpent ?? 0, locale)}
+                    {formatTND(client.totalSpent ?? 0)}
                   </span>
                 </div>
               </section>

@@ -173,7 +173,7 @@ export function ServiceFormModal({ open, onOpenChange, service }: ServiceFormMod
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="svc-price">{t('services:price')}</Label>
-              <Input id="svc-price" type="number" step="0.01" {...form.register('price')} />
+              <Input id="svc-price" type="number" step="0.001" placeholder="0.000" {...form.register('price')} />
             </div>
             <div>
               <Label htmlFor="svc-duration">{t('services:duration')}</Label>

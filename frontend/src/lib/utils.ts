@@ -5,13 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrencyEUR(value: number, locale: string) {
-  return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+export { formatTND, formatTNDCompact, CURRENCY, CURRENCY_SYMBOL } from '@/utils/currency'
 
 export function formatNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale === 'ar' ? 'ar-DZ' : 'fr-FR').format(value)

@@ -74,6 +74,30 @@ export function usePayInvoice() {
   })
 }
 
+export type PortalInvoice = {
+  id: string
+  number: string
+  status: 'unpaid' | 'partial' | 'paid' | 'overdue' | 'cancelled'
+  totalTTC: number
+  subtotalHT: number
+  dueDate?: string
+  paidAt?: string
+  paymentMethod?: string
+  createdAt: string
+  lines: ApiQuoteLine[]
+  vehicleInfo?: { plate: string; make: string; model: string }
+}
+
+export function usePortalInvoices() {
+  return useQuery({
+    queryKey: ['portal', 'invoices'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: PortalInvoice[] }>('/invoices/portal/my')
+      return data.data
+    },
+  })
+}
+
 export function useSendInvoiceEmail() {
   const qc = useQueryClient()
   return useMutation({

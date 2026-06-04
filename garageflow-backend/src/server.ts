@@ -50,6 +50,7 @@ app.use((req, res) => {
 
 app.use(errorHandler)
 
+app.set('io', io)
 initSockets(io)
 
 async function bootstrap() {

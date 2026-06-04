@@ -14,7 +14,8 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useQuotesList } from '@/hooks/api/useQuotes'
 import { useRepair } from '@/hooks/api/useRepairs'
 import { refIdStr } from '@/lib/quoteUtils'
-import { cn, formatCurrencyEUR } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useAuthStore } from '@/store/auth'
 import { useLocaleStore } from '@/store/locale'
 import api from '@/utils/api'
@@ -138,7 +139,7 @@ export function RepairDetailPage(): React.ReactElement {
                           {linkedQuote.number ?? linkedQuote.id.slice(-8)}
                         </p>
                         <p className="text-sm text-ink-secondary">
-                          {formatCurrencyEUR(linkedQuote.totalTTC ?? 0, locale)}
+                          {formatTND(linkedQuote.totalTTC ?? 0)}
                         </p>
                         <QuoteStatusBadge status={linkedQuote.status} />
                       </div>

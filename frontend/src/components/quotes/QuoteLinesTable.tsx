@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ApiQuoteLine } from '@/hooks/api/useQuotes'
-import { formatCurrencyEUR } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 
 type QuoteLinesTableProps = {
@@ -43,11 +43,11 @@ export function QuoteLinesTable({
                 <td className="capitalize">{line.type === 'part' ? t('linePart') : t('lineService')}</td>
                 <td>{line.label}</td>
                 <td className="text-end">{line.quantity}</td>
-                <td className="text-end">{formatCurrencyEUR(line.unitPrice, locale)}</td>
+                <td className="text-end">{formatTND(line.unitPrice)}</td>
                 <td className="text-end">{line.discount ?? 0}%</td>
                 <td className="text-end">{line.tva ?? 20}%</td>
                 <td className="text-end font-medium">
-                  {formatCurrencyEUR(line.totalTTC ?? line.quantity * line.unitPrice, locale)}
+                  {formatTND(line.totalTTC ?? line.quantity * line.unitPrice)}
                 </td>
               </tr>
             ))}
@@ -57,19 +57,19 @@ export function QuoteLinesTable({
       <div className="ms-auto max-w-xs space-y-1 text-sm">
         <div className="flex justify-between gap-4">
           <span className="text-ink-secondary">{t('subtotalHT')}</span>
-          <span>{formatCurrencyEUR(subtotalHT, locale)}</span>
+          <span>{formatTND(subtotalHT)}</span>
         </div>
         <div className="flex justify-between gap-4">
           <span className="text-ink-secondary">{t('totalTVA')}</span>
-          <span>{formatCurrencyEUR(totalTVA, locale)}</span>
+          <span>{formatTND(totalTVA)}</span>
         </div>
         <div className="flex justify-between gap-4">
           <span className="text-ink-secondary">{t('totalDiscount')}</span>
-          <span>{formatCurrencyEUR(totalDiscount, locale)}</span>
+          <span>{formatTND(totalDiscount)}</span>
         </div>
         <div className="flex justify-between gap-4 border-t border-[var(--border)] pt-2 text-base font-bold">
           <span>{t('totalTTC')}</span>
-          <span className="text-clay-primary">{formatCurrencyEUR(totalTTC, locale)}</span>
+          <span className="text-clay-primary">{formatTND(totalTTC)}</span>
         </div>
       </div>
     </div>

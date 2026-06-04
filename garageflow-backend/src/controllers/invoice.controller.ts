@@ -1,15 +1,17 @@
 import type { Request, Response } from 'express'
-import mongoose from 'mongoose'
+import mongoose, { Types } from 'mongoose'
 import type { PaginateModel } from 'mongoose'
 import { Invoice, type IInvoice } from '@/models/Invoice.model'
 import type { IQuoteLine } from '@/models/Quote.model'
-import { ok } from '@/utils/apiResponse'
 import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
 import { generateInvoicePDF } from '@/services/pdf.service'
-import { sendPdfAttachment } from '@/services/email.service'
+import { sendInvoiceViaWebhook, sendInvoiceEmailDirect } from '@/services/email.service'
 import { Client } from '@/models/Client.model'
 import { Garage } from '@/models/Garage.model'
+import { User } from '@/models/User.model'
+import { Notification } from '@/models/Notification.model'
+import { fail, ok } from '@/utils/apiResponse'
 import { exportInvoicesMonthExcel } from '@/services/excel.service'
 import { getEnv } from '@/config/env'
 
@@ -32,9 +34,40 @@ function mapLines(lines: unknown[]): IQuoteLine[] {
 export async function list(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
   const { page, limit, sort, order } = parsePagination(req.query as Record<string, unknown>)
-  const filter: Record<string, unknown> = { garageId }
-  if (typeof req.query.status === 'string') filter.status = req.query.status
-  const result = await InvoicePaged.paginate(filter, { page, limit, sort: { [sort]: order } })
+  const search = req.query.search as string | undefined
+  const status = req.query.status as string | undefined
+
+  let clientIds: Types.ObjectId[] | undefined
+
+  if (search) {
+    const matchingClients = await Client.find({
+      garageId,
+      $or: [
+        { nom: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { telephone: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+      ],
+    })
+      .select('_id')
+      .lean()
+
+    clientIds = matchingClients.map((c) => c._id as Types.ObjectId)
+  }
+
+  const query: Record<string, unknown> = { garageId }
+
+  if (search) {
+    query.$or = [
+      { number: { $regex: search, $options: 'i' } },
+      ...(clientIds && clientIds.length > 0 ? [{ clientId: { $in: clientIds } }] : []),
+    ]
+  }
+
+  if (status) query.status = status
+
+  const result = await InvoicePaged.paginate(query, { page, limit, sort: { [sort]: order } })
   res.json(ok(result.docs, buildMeta(result.totalDocs, page, limit)))
 }
 
@@ -128,44 +161,115 @@ export async function pdf(req: Request, res: Response): Promise<void> {
 
 export async function sendEmail(req: Request, res: Response): Promise<void> {
   const garageId = assertGarage(req)
-  const inv = await Invoice.findOne({ _id: req.params.id, garageId })
-  if (!inv) {
+  const invoice = await Invoice.findOne({ _id: req.params.id, garageId })
+  if (!invoice) {
     res.status(404).json({ success: false, message: 'Not found' })
     return
   }
-  const c = await Client.findById(inv.clientId)
-  const g = await Garage.findById(garageId)
-  if (!c?.email) {
+  const client = await Client.findById(invoice.clientId)
+  if (!client?.email) {
     res.status(400).json({ success: false, message: 'Client has no email' })
     return
   }
   const env = getEnv()
-  const backendBase =
-    env.BACKEND_URL?.replace(/\/$/, '') ?? `http://localhost:${env.PORT}`
-  const pdfUrl = `${backendBase}/api/v1/invoices/${inv._id.toString()}/pdf`
+  const pdfUrl = `${env.BACKEND_URL}/api/v1/invoices/${String(invoice._id)}/pdf`
+  const clientName = (client as { nom?: string; name?: string }).nom ?? client.name ?? 'Client'
 
-  if (env.N8N_INVOICE_WEBHOOK_URL) {
-    const webhookRes = await fetch(env.N8N_INVOICE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: c.email,
-        clientName: c.name,
-        invoiceNumber: inv.number,
-        totalTTC: inv.totalTTC,
-        factureId: inv._id.toString(),
-        pdfUrl,
-      }),
-    })
-    if (!webhookRes.ok) {
-      res.status(502).json({ success: false, message: 'n8n webhook failed' })
-      return
-    }
-  } else {
-    const buf = await generateInvoicePDF({ ...inv.toObject(), garage: g ?? undefined, client: c ?? undefined })
-    await sendPdfAttachment(c.email, `Facture ${inv.number}`, `${inv.number}.pdf`, buf)
+  const sentViaN8n = await sendInvoiceViaWebhook(
+    client.email,
+    clientName,
+    invoice.number,
+    invoice.totalTTC,
+    pdfUrl,
+    String(invoice._id),
+    String(invoice.garageId),
+  )
+  if (!sentViaN8n) {
+    await sendInvoiceEmailDirect(
+      client.email,
+      clientName,
+      invoice.number,
+      invoice.totalTTC,
+      pdfUrl,
+    )
   }
-  res.json(ok({ sent: true }))
+
+  try {
+    const clientUser = await User.findOne({ clientId: invoice.clientId }).select('_id').lean()
+    if (clientUser) {
+      await Notification.create({
+        garageId: invoice.garageId,
+        userId: clientUser._id,
+        type: 'payment_received',
+        title: 'Nouvelle facture disponible',
+        message: `Votre facture ${invoice.number} de ${invoice.totalTTC} TND est disponible.`,
+        link: '/portal/invoices',
+        isRead: false,
+      })
+
+      const io = req.app.get('io') as import('socket.io').Server
+      if (io) {
+        io.to(String(invoice.clientId)).emit('invoice:new', {
+          title: 'Nouvelle facture disponible 📄',
+          message: `Facture ${invoice.number} — ${invoice.totalTTC} TND`,
+          invoiceId: String(invoice._id),
+          number: invoice.number,
+          link: '/portal/invoices',
+        })
+      }
+    }
+  } catch (notifErr) {
+    console.error('[invoice notification error]', notifErr)
+  }
+
+  res.json(
+    ok({
+      message: sentViaN8n ? 'Email envoyé via n8n' : 'Email envoyé directement',
+    }),
+  )
+}
+
+type PopulatedVehicle = { plate?: string; make?: string; model?: string }
+
+function mapPortalInvoice(inv: Record<string, unknown>) {
+  const vehicle = inv.vehicleId as PopulatedVehicle | string | null | undefined
+  const vehicleInfo =
+    vehicle && typeof vehicle === 'object' && vehicle.plate != null
+      ? {
+          plate: String(vehicle.plate ?? ''),
+          make: String(vehicle.make ?? ''),
+          model: String(vehicle.model ?? ''),
+        }
+      : undefined
+
+  return {
+    id: String(inv.id ?? inv._id ?? ''),
+    number: String(inv.number ?? ''),
+    status: inv.status,
+    totalTTC: Number(inv.totalTTC ?? 0),
+    subtotalHT: Number(inv.subtotalHT ?? 0),
+    dueDate: inv.dueDate ? new Date(String(inv.dueDate)).toISOString() : undefined,
+    paidAt: inv.paidAt ? new Date(String(inv.paidAt)).toISOString() : undefined,
+    paymentMethod: inv.paymentMethod ? String(inv.paymentMethod) : undefined,
+    createdAt: inv.createdAt ? new Date(String(inv.createdAt)).toISOString() : undefined,
+    lines: Array.isArray(inv.lines) ? inv.lines : [],
+    vehicleInfo,
+  }
+}
+
+export async function listForClient(req: Request, res: Response): Promise<void> {
+  const clientId = req.user?.clientId
+  if (!clientId) {
+    res.status(403).json(fail('Client account required'))
+    return
+  }
+
+  const invoices = await Invoice.find({ clientId })
+    .populate('vehicleId', 'plate make model')
+    .sort({ createdAt: -1 })
+    .lean()
+
+  res.json(ok(invoices.map((inv) => mapPortalInvoice(inv as unknown as Record<string, unknown>))))
 }
 
 export async function exportExcel(req: Request, res: Response): Promise<void> {

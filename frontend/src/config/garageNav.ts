@@ -88,6 +88,12 @@ export const GARAGE_NAV_ITEMS: GarageNavItem[] = [
     allowedRoles: ['manager', 'cashier'],
   },
   {
+    path: '/loyalty',
+    labelKey: 'loyalty',
+    icon: Gift,
+    allowedRoles: ['manager', 'cashier'],
+  },
+  {
     path: '/stock',
     labelKey: 'stock',
     icon: Package,
@@ -110,12 +116,6 @@ export const GARAGE_NAV_ITEMS: GarageNavItem[] = [
     labelKey: 'team',
     icon: UserCog,
     allowedRoles: ['manager'],
-  },
-  {
-    path: '/loyalty',
-    labelKey: 'loyalty',
-    icon: Gift,
-    allowedRoles: ['manager', 'cashier'],
   },
   {
     path: '/storefront',

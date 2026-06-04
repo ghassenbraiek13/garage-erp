@@ -5,7 +5,10 @@ import path from 'path'
 import sharp from 'sharp'
 import fs from 'fs/promises'
 import { Part, type IPart } from '@/models/Part.model'
+import { User } from '@/models/User.model'
+import { Notification } from '@/models/Notification.model'
 import { ok } from '@/utils/apiResponse'
+import { sendMail } from '@/services/email.service'
 import { parsePagination, buildMeta } from '@/utils/pagination'
 import { assertGarage } from '@/utils/garageScope'
 import { exportStockExcel } from '@/services/excel.service'
@@ -103,6 +106,49 @@ export async function uploadPhotos(req: Request, res: Response): Promise<void> {
   p.photos = [...(p.photos ?? []), rel]
   await p.save()
   res.json(ok({ photos: p.photos }))
+}
+
+export async function stockCheck(_req: Request, res: Response): Promise<void> {
+  const parts = await Part.find({ $expr: { $lte: ['$stock', '$minStock'] } }).lean()
+  const byGarage = new Map<string, typeof parts>()
+
+  for (const p of parts) {
+    const gid = String(p.garageId)
+    const list = byGarage.get(gid) ?? []
+    list.push(p)
+    byGarage.set(gid, list)
+  }
+
+  let emailsEnvoyes = 0
+
+  for (const [garageId, garageParts] of byGarage) {
+    const manager = await User.findOne({ garageId, role: 'manager', isActive: true })
+    if (!manager) continue
+
+    const lines = garageParts
+      .map((p) => `- ${p.name} (${p.reference}): stock ${p.stock}, min ${p.minStock}`)
+      .join('\n')
+
+    if (manager.email) {
+      await sendMail({
+        to: manager.email,
+        subject: 'GarageFlow — Stock faible',
+        text: `Bonjour ${manager.name},\n\n${garageParts.length} pièce(s) sous le seuil:\n\n${lines}`,
+      })
+      emailsEnvoyes += 1
+    }
+
+    await Notification.create({
+      garageId,
+      userId: manager._id,
+      type: 'low_stock',
+      title: 'Stock faible',
+      message: `${garageParts.length} pièce(s) sous le seuil`,
+      isRead: false,
+    })
+  }
+
+  res.json(ok({ piecesAlertees: parts.length, emailsEnvoyes }))
 }
 
 export async function lowStock(req: Request, res: Response): Promise<void> {

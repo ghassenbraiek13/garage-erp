@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { QueryBoundary } from '@/components/ui/QueryBoundary'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { usePartsList } from '@/hooks/api/useParts'
-import { formatCurrencyEUR } from '@/lib/utils'
+import { formatTND } from '@/utils/currency'
 import { useLocaleStore } from '@/store/locale'
 
 export function StorefrontPage(): React.ReactElement {
@@ -41,7 +41,7 @@ export function StorefrontPage(): React.ReactElement {
                 <Badge variant="success">En stock</Badge>
               </CardHeader>
               <CardContent className="flex items-center justify-between text-sm">
-                <span className="font-semibold">{formatCurrencyEUR(p.price, locale)}</span>
+                <span className="font-semibold">{formatTND(p.price)}</span>
                 <span className="text-ink-secondary">{p.category ?? '—'}</span>
               </CardContent>
             </ClayCard>
